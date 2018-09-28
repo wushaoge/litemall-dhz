@@ -1,0 +1,590 @@
+<template>
+<div class="app-container calendar-list-container">
+
+  <!-- 查询和其他操作 -->
+  <div class="filter-container">
+    <el-input clearable class="filter-item" style="width: 200px;" placeholder="请输入商品ID" v-model="listQuery.goodsId">
+    </el-input>
+    <el-button class="filter-item" type="primary" v-waves icon="el-icon-search" @click="handleFilter">查找</el-button>
+    <el-button class="filter-item" type="primary" @click="handleCreate" icon="el-icon-edit">添加</el-button>
+    <el-button class="filter-item" type="primary" :loading="downloadLoading" v-waves icon="el-icon-download" @click="handleDownload">导出</el-button>
+  </div>
+
+  <!-- 查询结果 -->
+  <el-table size="small" :data="list" v-loading="listLoading" element-loading-text="正在查询中。。。" border fit highlight-current-row>
+
+    <el-table-column type="expand">
+      <template slot-scope="scope">
+          <el-table label-position="left" class="demo-table-expand" :data="scope.row.recordValueList">
+            <el-table-column align="center" label="操作" width="250" class-name="small-padding fixed-width">
+              <template slot-scope="props2">
+                <el-button type="primary" size="mini" @click="handleUpdate(props2.row)">编辑</el-button>
+                <el-button type="danger" size="mini"  @click="handleDelete(props2.row)">删除</el-button>
+              </template>
+    </el-table-column>
+    <!-- <el-table-column label="编号">
+              <template scope="props">
+                <span>{{props.row.name}}</span>
+              </template>
+            </el-table-column> -->
+    <el-table-column align="center" width="150px" label="显示类型" prop="displayType">
+      <template slot-scope="scope">
+                <el-tag :type="scope.row.displayType === 0 ? 'success' : 'error' ">{{scope.row.displayType === 0 ? '商品分类' : '商品'}}</el-tag>
+              </template>
+    </el-table-column>
+
+    <el-table-column align="center" width="150px" label="内容id" prop="displayId">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="200px" label="内容名称" prop="name">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="200px" label="图片" prop="imageUrl">
+      <template slot-scope="scope">
+                <!-- {{scope.row.goodsSources[0].source}} -->
+                <img :src="scope.row.imageUrl" alt="" style="width: 70px;height: 70px">
+              </template>
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="排序" prop="priority">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="是否禁用" prop="status">
+      <template slot-scope="scope">
+                <el-tag :type="scope.row.status === 0 ? 'success' : 'error' ">{{scope.row.status === 0 ? '正常' : '禁用'}}</el-tag>
+              </template>
+    </el-table-column>
+
+    <el-table-column align="center" min-width="150px" label="创建时间" prop="createTime">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="150px" label="修改时间" prop="updateTime">
+    </el-table-column>
+  </el-table>
+
+  <!-- <el-table size="small" :data="props.row.recordValueList" border fit highlight-current-row>
+            <el-table-column align="center" width="150px" label="属性名称" prop="name">
+            </el-table-column>
+          </el-form> -->
+
+  </template>
+  </el-table-column>
+
+  <el-table-column align="center" width="150px" label="位置" prop="position" sortable>
+  </el-table-column>
+
+  <el-table-column align="center" min-width="100px" label="排序" prop="priority">
+  </el-table-column>
+
+  <el-table-column align="center" min-width="100px" label="创建时间" prop="createTime">
+  </el-table-column>
+
+  <el-table-column align="center" min-width="200px" label="修改时间" prop="updateTime">
+  </el-table-column>
+  </el-table>
+
+  <!-- 分页 -->
+  <div class="pagination-container">
+    <el-pagination background @size-change="handleSizeChange" @current-change="handleCurrentChange" :current-page="listQuery.currentPage" :page-sizes="[10,20,30,50]" :page-size="listQuery.pageSize" layout="total, sizes, prev, pager, next, jumper" :total="total">
+    </el-pagination>
+  </div>
+
+  <!-- 添加或修改对话框 -->
+  <el-dialog :title="textMap[dialogStatus]" :visible.sync="dialogFormVisible" @open="openDialog">
+    <el-form :rules="rules" ref="dataForm" :model="dataForm" status-icon label-position="left" label-width="100px" style='width: 450px; margin-left:50px;'>
+      <el-form-item label="位置" prop="selectedhomeId">
+        <div>
+          <select v-model="selectedhomeId">
+                <option v-for="item in homes" v-bind:value="item.value">{{item.text}}</option>
+            </select>
+          <span>已选:{{selectedhomeId}}</span>
+        </div>
+      </el-form-item>
+      <el-form-item label="显示类型" prop="selected">
+        <div id="app">
+          <select v-model="selected" v-on:change="indexSelect($event)">
+                <option v-for="item in items" v-bind:value="item.value">{{item.text}}</option>
+            </select>
+          <span>已选:{{selected}}</span>
+        </div>
+      </el-form-item>
+      <el-form-item label="内容名称" prop="value9">
+        <el-select v-model="value9" filterable remote reserve-keyword placeholder="请输入关键词" :remote-method="remoteMethod" :loading="loading">
+          <el-option v-for="item in options4" :key="item.value" :label="item.label" :value="item.value">
+          </el-option>
+        </el-select>
+        <span>已选:{{value9}}</span>
+        <span v-model="loadingTxt">{{loadingTxt}}</span>
+      </el-form-item>
+      <el-form-item label="排序" prop="priority">
+        <el-input v-model="dataForm.priority"></el-input>
+      </el-form-item>
+      <el-form-item label="图标">
+        <el-upload action="#" :limit="1" :http-request="uploadPicUrls" :show-file-list="true" :on-success="handleIconUrl" :file-list="dataForm.fileList" :before-upload="beforeAvatarUpload" list-type="picture-card" :on-preview="handlePictureCardPreview" :on-exceed="handleGoBeyond"
+          :on-remove="handlerOnRemove" :on-change="handlerOnchange" ref="upload">
+          <i class="el-icon-plus"></i>
+        </el-upload>
+      </el-form-item>
+    </el-form>
+    <div slot="footer" class="dialog-footer">
+      <el-button @click="dialogFormVisible = false">取消</el-button>
+      <el-button v-if="dialogStatus=='create'" type="primary" @click="createData">确定</el-button>
+      <el-button v-else type="primary" @click="updateData">确定</el-button>
+    </div>
+  </el-dialog>
+
+  <el-dialog :visible.sync="dialogVisible">
+    <img width="100%" :src="dialogImageUrl" alt="">
+  </el-dialog>
+</div>
+</template>
+<style>
+.inline {
+  margin: 0px;
+  display: inline;
+}
+
+/* hiddenIcon .el-upload--picture-card {display: none;} */
+
+/* .el-upload--picture-card {
+      background-color: #fbfdff;
+      border: 1px dashed #c0ccda;
+      border-radius: 6px;
+      -webkit-box-sizing: border-box;
+      box-sizing: border-box;
+      width: 148px;
+      height: 148px;
+      line-height: 146px;
+      vertical-align: top;
+      display: none;
+  } */
+
+/* .avatar-uploader .el-upload {
+      border: 1px dashed #d9d9d9;
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .avatar-uploader .el-upload:hover {
+      border-color: #409EFF;
+    }
+    .avatar-uploader-icon {
+      font-size: 28px;
+      color: #8c939d;
+      width: 178px;
+      height: 178px;
+      line-height: 178px;
+      text-align: center;
+    }
+    .avatar {
+      width: 178px;
+      height: 178px;
+      display: block;
+    } */
+</style>
+<script>
+import {
+  listGoodsSpecification,
+  createGoodsSpecification,
+  updateGoodsSpecification,
+  deleteGoodsSpecification
+} from '@/api/goods-specification'
+import {
+  listGoodsNames
+} from '@/api/goods'
+import {
+  listCategoryNames
+} from '@/api/goods-classify'
+import {
+  uploadFile
+} from '@/api/upload'
+import waves from '@/directive/waves' // 水波纹指令
+
+export default {
+  name: 'GoodsSpecification',
+  directives: {
+    waves
+  },
+  data() {
+    return {
+      list: null,
+      listGoodsAndCay: null,
+      total: null,
+      listLoading: true,
+      loadingTxt: '正在加载数据...',
+      listQuery: {
+        currentPage: 1,
+        pageSize: 20,
+        goodsId: undefined,
+        sort: '+id'
+      },
+      dataForm: {
+        homeId: undefined,
+        displayType: undefined,
+        displayId: undefined,
+        name: undefined,
+        imageUrl: undefined,
+        priority: undefined,
+        fileList: [],
+      },
+      dialogFormVisible: false,
+      dialogStatus: '',
+      textMap: {
+        update: '编辑',
+        create: '创建'
+      },
+      homes: [{
+        text: '1号位置',
+        value: '1'
+      }, {
+        text: '2号位置',
+        value: '2'
+      }, {
+        text: '3号位置',
+        value: '3'
+      }, {
+        text: '4号位置',
+        value: '4'
+      }, {
+        text: '5号位置',
+        value: '5'
+      }, {
+        text: '6号位置',
+        value: '6'
+      }, {
+        text: '7号位置',
+        value: '7'
+      }],
+      items: [{
+        text: '商品分类',
+        value: '0'
+      }, {
+        text: '商品',
+        value: '1'
+      }],
+      selected: '0',
+      selectedhomeId: '1',
+      options4: [],
+      value9: [],
+      list: [],
+      dialogImageUrl: '',
+      dialogVisible: false,
+      loading: false,
+      states: null,
+      rules: {
+        priority: [{
+          required: true,
+          message: '排序不能为空',
+          trigger: 'blur'
+        }]
+      },
+      downloadLoading: false
+    }
+  },
+  created() {
+    this.getList()
+  },
+  methods: {
+    getList() {
+      this.listLoading = true
+      console.log('发送的值\n' + JSON.stringify(this.listQuery, null, 2))
+      listGoodsSpecification(this.listQuery).then(response => {
+        this.list = response.data.recordList
+        this.total = response.data.totalCount
+        this.listLoading = false
+      }).catch(() => {
+        this.list = []
+        this.total = 0
+        this.listLoading = false
+      })
+    },
+    handleFilter() {
+      this.listQuery.currentPage = 1
+      this.getList()
+    },
+    handleSizeChange(val) {
+      this.listQuery.pageSize = val
+      this.getList()
+    },
+    handleCurrentChange(val) {
+      this.listQuery.currentPage = val
+      this.getList()
+    },
+    resetForm() {
+      this.selected = 0
+      this.selectedhomeId = 1
+      this.value9 = undefined
+      this.loadingTxt = '正在加载数据...'
+      this.dataForm = {
+        homeId: undefined,
+        displayType: undefined,
+        displayId: undefined,
+        name: undefined,
+        imageUrl: undefined,
+        priority: undefined,
+        fileList: []
+      }
+    },
+    handleCreate() {
+      this.resetForm()
+      this.dialogStatus = 'create'
+      this.dialogFormVisible = true
+      this.$nextTick(() => {
+        this.$refs['dataForm'].clearValidate()
+      })
+    },
+    openDialog() {
+      this.getGoodsCay()
+    },
+    getGoods() {
+      //查询商品信息
+      console.log('发送的商品信息GET')
+      listGoodsNames(null).then(response => {
+        console.log(response.data)
+        this.loadingTxt = ''
+        this.states = response.data
+        this.listGoodsAndCay = this.states.map(item => {
+          return {
+            value: item.id,
+            label: item.goodsCode
+          }
+        })
+      }).catch(() => {
+        this.states = []
+        this.loadingTxt = '加载失败'
+      })
+    },
+    getGoodsCay() {
+      //查询商品分类信息
+      console.log('发送的商品分类信息GET')
+      listCategoryNames(null).then(response => {
+        this.loadingTxt = ''
+        this.states = response.data
+        this.listGoodsAndCay = this.states.map(item => {
+          return {
+            value: item.id,
+            label: item.name
+          }
+        })
+      }).catch(() => {
+        this.states = []
+        this.loadingTxt = '加载失败'
+      })
+    },
+    createData() {
+      this.$refs['dataForm'].validate((valid) => {
+        if (valid) {
+          if (this.value9 == null || this.value9 == 0) {
+            this.$message.error('内容名称不能为空')
+            return
+          }
+          if (this.dataForm.fileList == null || this.dataForm.fileList.length <= 0) {
+            this.$message.error('请上传图片!');
+            return
+          }
+          this.dataForm.homeId = this.selectedhomeId
+          this.dataForm.displayType = this.selected
+          this.dataForm.displayId = this.value9
+          this.dataForm.imageUrl = this.dialogImageUrl
+          console.log('发送的值\n' + JSON.stringify(this.dataForm, null, 2))
+          createGoodsSpecification(this.dataForm).then(response => {
+            // this.list.unshift(response.data.data)
+            this.dialogFormVisible = false
+            this.getList()
+            this.$notify({
+              title: '成功',
+              message: '创建成功',
+              type: 'success',
+              duration: 2000
+            })
+          })
+        }
+      })
+    },
+    handleUpdate(row) {
+      this.dataForm = Object.assign({}, row)
+      this.dialogStatus = 'update'
+      this.dialogFormVisible = true
+      this.$nextTick(() => {
+        this.$refs['dataForm'].clearValidate()
+      })
+    },
+    updateData() {
+      this.$refs['dataForm'].validate((valid) => {
+        if (valid) {
+          if (this.value9 == null || this.value9 == 0) {
+            this.$message.error('内容名称不能为空')
+            return
+          }
+          if (this.dataForm.fileList == null || this.dataForm.fileList.length <= 0) {
+            this.$message.error('请上传图片!');
+            return
+          }
+          this.dataForm.homeId = this.selectedhomeId
+          this.dataForm.displayType = this.selected
+          this.dataForm.displayId = this.value9
+          this.dataForm.imageUrl = this.dialogImageUrl
+          console.log('发送的值\n' + JSON.stringify(this.dataForm, null, 2))
+          updateGoodsSpecification(this.dataForm).then(() => {
+            for (const v of this.list) {
+              if (v.id === this.dataForm.id) {
+                const index = this.list.indexOf(v)
+                this.list.splice(index, 1, this.dataForm)
+                break
+              }
+            }
+            this.dialogFormVisible = false
+            this.$notify({
+              title: '成功',
+              message: '更新成功',
+              type: 'success',
+              duration: 2000
+            })
+          })
+        }
+      })
+    },
+    handleDelete(row) {
+      console.log(row.id);
+      deleteGoodsSpecification(row).then(response => {
+        this.$notify({
+          title: '成功',
+          message: '删除成功',
+          type: 'success',
+          duration: 2000
+        })
+        // const index = this.list.indexOf(row)
+        // this.list.splice(index, 1)
+        this.getList()
+      })
+    },
+    handleDownload() {
+      this.downloadLoading = true
+      import ('@/vendor/Export2Excel').then(excel => {
+        const tHeader = ['首页', '商品ID', '商品规格名称', '商品规格值', '商品规格图片']
+        const filterVal = ['id', 'goodsId', 'specification', 'value', 'picUrl']
+        excel.export_json_to_excel2(tHeader, this.list, filterVal, '商品规格信息')
+        this.downloadLoading = false
+      })
+    },
+    indexSelect() {
+      this.loadingTxt = '正在加载数据...'
+      //获取显示类型idagain
+      console.log(event.target.value);
+      if (event.target.value == '1') {
+        this.getGoods()
+      } else {
+        this.getGoodsCay()
+      }
+    },
+    remoteMethod(query) {
+      if (query !== '') {
+        this.loading = true
+        setTimeout(() => {
+          this.loading = false
+          this.options4 = this.listGoodsAndCay.filter(item => {
+            return item.label.toLowerCase()
+              .indexOf(query.toLowerCase()) > -1
+          })
+        }, 200)
+      } else {
+        this.options4 = []
+      }
+    },
+    handleGoBeyond(files, fileList) {
+      this.$message.error('最多上传1张图片!')
+    },
+    //如果上传到最后一张了取消加号
+    hidePictureCardUpload() {
+      if (this.dataForm.fileList.length >= 1) {
+        document.getElementsByClassName('el-upload el-upload--picture-card')[0].style.display = 'none'
+      } else {
+        document.getElementsByClassName('el-upload el-upload--picture-card')[0].style.display = ''
+        // document.getElementsByClassName('el-upload el-upload--picture-card')[0].style.height = '148px'
+        // document.getElementsByClassName('el-upload el-upload--picture-card')[0].style.width = '148px'
+      }
+    },
+    handlerOnRemove(files, fileList) {
+      console.log('触发handlerOnRemove');
+      console.log('item值\n' + JSON.stringify(fileList, null, 2))
+      // this.dataForm.fileList = fileList
+      this.dataForm.fileList = fileList
+      this.hidePictureCardUpload()
+    },
+    handlerOnchange(files, fileList) {
+      console.log('触发handlerOnchange');
+      console.log('item值\n' + JSON.stringify(fileList, null, 2))
+      // this.dataForm.fileList = fileList
+      // this.dataForm.fileList = fileList
+      // this.hidePictureCardUpload()
+    },
+    uploadPicUrls(item) {
+      // console.log('item值\n' + JSON.stringify(this.$refs['dataForm'],null,2))
+
+      const formData = new FormData()
+      formData.append('file', item.file)
+      uploadFile(formData).then(res => {
+        //console.log('新的图片返回值DATA\n' + JSON.stringify(res,null,2))
+
+        var uploadUrlSuc = {
+          name: res.data.fileName,
+          url: res.data.fileName
+        }
+        this.dataForm.fileList.push(uploadUrlSuc)
+        // this.fileList.push(uploadUrlSuc)
+
+        // console.log('item值\n' + JSON.stringify(this.dataForm.fileList,null,2))
+        this.hidePictureCardUpload()
+
+        this.$notify({
+          title: '图片上传成功',
+          message: '~\(≧▽≦)/~啦啦啦',
+          type: 'success',
+          duration: 2000
+        })
+
+      }).catch((ex) => {
+        this.$message.error('上传失败，请重新上传' + ex)
+        this.dataForm.fileList.splice(this.dataForm.fileList.length, 1)
+        console.log('item值\n' + JSON.stringify(this.dataForm.fileList, null, 2))
+      })
+    },
+    beforeAvatarUpload(file) {
+      console.log(file.type);
+      // const isJPG = file.type === 'image/jpeg';
+      var isJPG = true;
+      if (file.type.indexOf('image') === -1) {
+        isJPG = false;
+      }
+
+      const isLt2M = file.size / 1024 / 1024 < 2;
+
+      if (!isJPG) {
+        this.$message.error('上传图片格式不对!');
+      }
+      if (!isLt2M) {
+        this.$message.error('上传图片大小不能超过 2MB!');
+      }
+      return isJPG && isLt2M;
+    },
+    //handleIconUrl为默认实现
+    handleIconUrl(response, file, fileList) {
+      console.log('图片返回值DATA\n' + JSON.stringify(response, null, 2))
+      if (response.code === '2000') {
+        this.dataForm.iconUrl = response.data.fileName
+      } else {
+        this.$message.error(response.code + '上传失败，请重新上传')
+      }
+      console.log('开始')
+      console.log('当前已上传的图片列表\n' + JSON.stringify(fileList, null, 2))
+      console.log('结束')
+    },
+    handlePictureCardPreview(file) {
+      this.dialogImageUrl = file.url
+      this.dialogVisible = true
+    }
+
+  }
+}
+</script>

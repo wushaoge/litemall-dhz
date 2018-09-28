@@ -1,0 +1,9 @@
+import request from '@/utils/request'
+
+export function listGoodsClassify(data) {
+  return request({
+    url: '/category/queryPageByMap',
+    method: 'post',
+    data
+  })
+}

@@ -1,0 +1,33 @@
+import request from '@/utils/request'
+
+export function listGoodsSpecification(data) {
+  return request({
+    url: '/goods/findHomeAndSourceList',
+    method: 'post',
+    data
+  })
+}
+
+export function createGoodsSpecification(data) {
+  return request({
+    url: '/goods/addHomeSource',
+    method: 'post',
+    data
+  })
+}
+
+export function updateGoodsSpecification(data) {
+  return request({
+    url: '/goods-specification/update',
+    method: 'post',
+    data
+  })
+}
+
+export function deleteGoodsSpecification(data) {
+  return request({
+    url: '/goods-specification/deleteHomeSource',
+    method: 'get',
+    data
+  })
+}

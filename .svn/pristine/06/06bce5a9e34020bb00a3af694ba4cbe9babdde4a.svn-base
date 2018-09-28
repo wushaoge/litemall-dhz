@@ -1,0 +1,25 @@
+import request from '@/utils/request'
+
+export function getUserLevelList(data) {
+  return request({
+    url: '/userVip/findUserVipList',
+    method: 'post',
+    data
+  })
+}
+
+export function creatUserLevelList(data) {
+  return request({
+    url: '/userVip/addUserVip',
+    method: 'post',
+    data
+  })
+}
+
+export function deleteUserLevel(query) {
+  return request({
+    url: '/userVip/deleteuserVip',
+    method: 'get',
+    params: query
+  })
+}

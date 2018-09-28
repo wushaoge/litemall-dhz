@@ -1,0 +1,446 @@
+<template>
+<div class="app-container calendar-list-container">
+
+  <!-- 查询和其他操作 -->
+  <div class="filter-container">
+    <el-input clearable class="filter-item" style="width: 200px;" placeholder="请输入属性名" v-model="listQuery.attributeName">
+    </el-input>
+    <el-select clearable class="filter-item" v-model="listQuery.status" placeholder="请选择状态">
+      <el-option label="全部" value="-1">
+      </el-option>
+      <el-option label="正常" value="0">
+      </el-option>
+      <el-option label="禁用" value="1">
+      </el-option>
+    </el-select>
+    <el-button class="filter-item" type="primary" v-waves icon="el-icon-search" @click="handleFilter">查找</el-button>
+    <el-button class="filter-item" type="primary" @click="handleCreate" icon="el-icon-edit">添加</el-button>
+    <!-- <el-button class="filter-item" type="primary" :loading="downloadLoading" v-waves icon="el-icon-download" @click="handleDownload">导出</el-button> -->
+  </div>
+
+  <!-- 查询结果 -->
+  <el-table size="small" :data="list" v-loading="listLoading" element-loading-text="正在查询中。。。" border fit highlight-current-row
+      :row-key="getRowKeys">
+
+    <el-table-column align="center" label="操作" width="250" class-name="small-padding fixed-width">
+      <template slot-scope="scope">
+          <el-button type="primary" size="mini" @click="handleUpdate(scope.row)">编辑</el-button>
+          <el-button type="danger" size="mini"  @click="handleDelete(scope.row)">删除</el-button>
+        </template>
+    </el-table-column>
+
+    <el-table-column type="expand" label="查看属性值" width="110px">
+      <template slot-scope="scopeX">
+        <!-- :row-key="getRowKeys" :expand-row-keys="expands" -->
+         <el-table label-position="left" :data="scopeX.row.attributeValues" border :row-key="getRowKeys">
+               <!-- <el-table-column align="center" width="150px" label="id">
+                   <template slot-scope="scopey">
+                     <span>{{ scopey.row.id }}</span>
+                     <el-tag>{{scopey.row.id}}</el-tag>
+                   </template>
+               </el-table-column> -->
+
+               <el-table-column align="center" label="操作" width="250" class-name="small-padding fixed-width">
+                   <template slot-scope="scope2">
+                        <el-button type="danger" size="mini"  @click="handleValueDelete(scope2.row)" v-show="scope2.row.status === 0 ? true : false">禁用</el-button>
+                  </template>
+                </el-table-column>
+
+                <el-table-column align="center" width="150px" label="属性值" prop="name">
+                </el-table-column>
+
+                <el-table-column align="center" width="150px" label="排序" prop="priority">
+                </el-table-column>
+
+                <el-table-column align="center" width="150px" label="是否禁用" prop="status">
+                   <template slot-scope="scope3">
+                          <el-tag :type="scope3.row.status === 0 ? 'success' : 'error' ">{{scope3.row.status === 0 ? '正常' : '禁用'}}</el-tag>
+                   </template>
+                </el-table-column>
+
+                <el-table-column align="center" min-width="200px" label="创建时间" prop="createTime" :formatter="dateFormat">
+                </el-table-column>
+
+                <el-table-column align="center" min-width="200px" label="修改时间" prop="updateTime" :formatter="dateFormat">
+                </el-table-column>
+
+          </el-table>
+    </template>
+  </el-table-column>
+
+
+  <el-table-column align="center" width="150px" label="属性名" prop="name">
+  </el-table-column>
+
+  <!-- 自定义列的遍历-->
+  <!-- <el-table-column v-for="(item, index) in attributeValues" :key="index" :label="item" prop="attributeValues"> -->
+  <!-- 数据的遍历  scope.row就代表数据的每一个对象-->
+  <!-- <template slot-scope="scope">
+          <span>{{scope.row.list[index].value}}</span>
+         </template>
+       </el-table-column> -->
+
+  <el-table-column align="center" width="150px" label="排序" prop="priority">
+  </el-table-column>
+
+  <el-table-column align="center" min-width="200px" label="创建时间" prop="createTime" :formatter="dateFormat">
+  </el-table-column>
+
+  <el-table-column align="center" min-width="200px" label="修改时间" prop="updateTime" :formatter="dateFormat">
+  </el-table-column>
+
+  </el-table>
+
+  <!-- 分页 -->
+  <div class="pagination-container">
+    <el-pagination background @size-change="handleSizeChange" @current-change="handleCurrentChange" :current-page="listQuery.currentPage" :page-sizes="[10,20,30,50]" :page-size="listQuery.pageSize" layout="total, sizes, prev, pager, next, jumper" :total="total">
+    </el-pagination>
+  </div>
+
+  <!-- 添加或修改对话框 -->
+  <el-dialog :title="textMap[dialogStatus]" :visible.sync="dialogFormVisible" :close-on-click-modal="false">
+    <el-form :rules="rules" ref="dataForm" :model="dataForm" status-icon label-position="left" label-width="100px" style='width: 400px; margin-left:50px;'>
+      <el-form-item label="属性名称" prop="attributeName">
+        <el-input v-model="dataForm.attributeName" :disabled='isDisabled'></el-input>
+      </el-form-item>
+
+      <el-form-item label="排序" prop="attributePriority">
+        <el-input v-model="dataForm.attributePriority"></el-input>
+      </el-form-item>
+    </el-form>
+
+    <el-form style='width: 400px; margin-left:50px;'>
+      <el-form-item label="属性值" prop="goodsId">
+        <el-tag :key="tag.id" v-for="tag in dataForm.recordList" closable :disable-transitions="false" @close="handleClose(tag)">
+          {{tag.name}}
+          </el-input>
+        </el-tag>
+        <el-input class="input-new-tag" v-if="inputVisible" v-model="inputValue" ref="saveTagInput" size="small" @keyup.enter.native="handleInputConfirm" @blur="handleInputConfirm">
+        </el-input>
+        <el-button v-else class="button-new-tag" size="small" @click="showInput">添加属性值</el-button>
+      </el-form-item>
+    </el-form>
+
+    <div slot="footer" class="dialog-footer">
+      <el-button @click="dialogFormVisible = false">取消</el-button>
+      <el-button v-if="dialogStatus=='create'" type="primary" @click="createData">确定</el-button>
+      <el-button v-else type="primary" @click="updateData">确定</el-button>
+    </div>
+
+  </el-dialog>
+
+  <el-dialog :visible.sync="dialogVisible">
+    <img width="100%" :src="dialogImageUrl" alt="">
+  </el-dialog>
+
+
+</div>
+</template>
+
+<style>
+.el-tag+.el-tag {
+  margin-left: 10px;
+}
+
+.button-new-tag {
+  margin-left: 10px;
+  height: 32px;
+  line-height: 30px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.input-new-tag {
+  width: 90px;
+  margin-left: 10px;
+  vertical-align: bottom;
+}
+</style>
+
+<script>
+import {
+  listGoodsAttribute,
+  createGoodsAttribute,
+  updateGoodsAttribute,
+  deleteGoodsAttribute,
+  deleteAttribute
+} from '@/api/goods-attribute'
+import waves from '@/directive/waves' // 水波纹指令
+
+export default {
+  name: 'GoodsAttribute',
+  directives: {
+    waves
+  },
+  data() {
+    return {
+      list: null,
+      total: null,
+      isDisabled: false,
+      listLoading: true,
+      listQuery: {
+        currentPage: 1,
+        pageSize: 10,
+        attributeName: undefined,
+        attributeValueName: undefined,
+        status: undefined,
+        sort: '+id'
+      },
+      dataForm: {
+        id: undefined,
+        attributeName: undefined,
+        attributePriority: undefined,
+        attribute: {
+          id: undefined,
+          name: undefined,
+          priority: undefined
+        },
+        recordList: [],
+      },
+      deleteModel: {
+        id: undefined
+      },
+      dialogFormVisible: false,
+      dialogStatus: '',
+      textMap: {
+        update: '编辑',
+        create: '创建'
+      },
+      dialogImageUrl: '',
+      dialogVisible: false,
+      rules: {
+        attributeName: [{
+          required: true,
+          message: '属性名称不能为空',
+          trigger: 'blur'
+        }],
+        attributePriority: [{
+          required: true,
+          message: '排序不能为空',
+          trigger: 'blur'
+        }]
+      },
+      downloadLoading: false,
+      inputVisible: false,
+      inputValue: ''
+    }
+  },
+  computed: {
+    key: function() {
+      return this.getCurrentTime()
+    }
+  },
+  created() {
+    this.getList()
+  },
+  methods: {
+    getList() {
+      this.listLoading = true
+      listGoodsAttribute(this.listQuery).then(response => {
+        this.list = response.data.recordList
+        this.total = response.data.totalCount
+        this.listLoading = false
+      }).catch(() => {
+        this.list = []
+        this.total = 0
+        this.listLoading = false
+      })
+    },
+    // 获取row的key值
+    getRowKeys(row) {
+        return row.id;
+    },
+    handleFilter() {
+      this.listQuery.currentPage = 1
+      this.getList()
+    },
+    handleSizeChange(val) {
+      this.listQuery.pageSize = val
+      this.getList()
+    },
+    handleCurrentChange(val) {
+      this.listQuery.currentPage = val
+      this.getList()
+    },
+    resetForm() {
+      this.dataForm = {
+        id: undefined,
+        attributeName: undefined,
+        attributePriority: undefined,
+        attribute: {
+          id: undefined,
+          name: undefined,
+          priority: undefined
+        },
+        recordList: [],
+      }
+    },
+    handleCreate() {
+      this.resetForm()
+      this.dialogStatus = 'create'
+      this.dialogFormVisible = true
+      this.isDisabled = false
+      this.$nextTick(() => {
+        this.$refs['dataForm'].clearValidate()
+      })
+    },
+    createData() {
+      this.$refs['dataForm'].validate((valid) => {
+        if (valid) {
+          createGoodsAttribute(this.dataForm).then(response => {
+            // this.list.unshift(response.data.data)
+            this.dialogFormVisible = false
+            this.getList()
+            this.$notify({
+              title: '成功',
+              message: '创建成功',
+              type: 'success',
+              duration: 2000
+            })
+          })
+        }
+      })
+    },
+    handleUpdate(row) {
+      // this.dataForm = Object.assign({}, row)
+      var rowItemData = Object.assign({}, row)
+      this.dataForm.id = rowItemData.id
+      this.dataForm.attributeName = rowItemData.name
+      this.dataForm.attributePriority = rowItemData.priority
+      this.dataForm.recordList = rowItemData.attributeValues
+      this.dialogStatus = 'update'
+      this.dialogFormVisible = true
+      this.isDisabled = true
+      this.$nextTick(() => {
+        this.$refs['dataForm'].clearValidate()
+      })
+    },
+    updateData() {
+      this.$refs['dataForm'].validate((valid) => {
+        if (valid) {
+
+          this.dataForm.attribute.id = this.dataForm.id
+          this.dataForm.attribute.name = this.dataForm.attributeName
+          this.dataForm.attribute.priority = this.dataForm.attributePriority
+          // console.log('发送的值\n' + JSON.stringify(this.dataForm, null, 2))
+          updateGoodsAttribute(this.dataForm).then(() => {
+            // for (const v of this.list) {
+            //   if (v.id === this.dataForm.id) {
+            //     const index = this.list.indexOf(v)
+            //     this.list.splice(index, 1, this.dataForm)
+            //     break
+            //   }
+            // }
+            this.dialogFormVisible = false
+            this.getList()
+            this.$notify({
+              title: '成功',
+              message: '更新成功',
+              type: 'success',
+              duration: 2000
+            })
+          })
+        }
+      })
+    },
+    handleDelete(row) {
+      console.log(row.attributeValues);
+      if (row.attributeValues != null && row.attributeValues.length > 0) {
+        this.$alert('请点击编辑，清空属性值,再进行删除操作!', '提示', {
+          confirmButtonText: '确定',
+        });
+        return
+      }
+
+      this.$confirm('确定删除吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        deleteAttribute(row).then(response => {
+          this.$notify({
+            title: '成功',
+            message: '删除成功',
+            type: 'success',
+            duration: 2000
+          })
+          // const index = this.list.indexOf(row)
+          // this.list.splice(index, 1)
+          this.getList()
+        }).catch(() => {
+          this.$message({
+            type: 'info',
+            message: '已取消删除'
+          });
+        });
+      })
+    },
+    handleValueDelete(row) {
+      this.$confirm('确定禁用吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        // console.log(row);
+        deleteGoodsAttribute(row).then(response => {
+          this.$notify({
+            title: '成功',
+            message: '禁用成功',
+            type: 'success',
+            duration: 2000
+          })
+          // const index = this.list.indexOf(row)
+          // this.list.splice(index, 1)
+          this.getList()
+        }).catch(() => {
+          this.$message({
+            type: 'info',
+            message: '已取消禁用'
+          });
+        });
+      })
+    },
+    handleDownload() {
+      this.downloadLoading = true
+      import ('@/vendor/Export2Excel').then(excel => {
+        const tHeader = ['商品参数ID', '商品ID', '商品参数名称', '商品参数值']
+        const filterVal = ['id', 'goodsId', 'attribute', 'value']
+        excel.export_json_to_excel2(tHeader, this.list, filterVal, '商品参数信息')
+        this.downloadLoading = false
+      })
+    },
+    handleClose(tag) {
+      const index = this.dataForm.recordList.indexOf(tag)
+      this.dataForm.recordList.splice(index, 1)
+    },
+
+    showInput() {
+      this.inputVisible = true;
+      this.$nextTick(_ => {
+        this.$refs.saveTagInput.$refs.input.focus();
+      });
+    },
+
+    handleInputConfirm() {
+      let inputValue = this.inputValue;
+      if (inputValue) {
+        var recordItem = {
+          name: inputValue,
+          priority: '0'
+        };
+        this.dataForm.recordList.push(recordItem)
+      }
+      this.inputVisible = false;
+      this.inputValue = '';
+    },
+    //时间格式化
+    dateFormat: function(row, column) {
+      var date = row[column.property];
+      if (date == undefined) {
+        return "";
+      }
+      return this.getDateTime(date);
+    }
+  }
+}
+</script>

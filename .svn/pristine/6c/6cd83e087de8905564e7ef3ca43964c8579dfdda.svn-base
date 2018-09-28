@@ -1,0 +1,41 @@
+import moment from 'moment/moment'
+
+export default {
+  install(Vue, options) {
+    Vue.prototype.getTest = function() {
+      console.log('我是插件中的方法')
+    }
+
+    Vue.prototype.getCurrentTime = function() {
+      return new Date().getTime()
+    }
+
+    Vue.prototype.getDateTime = function(date) {
+      if (date == null || date == '') {
+        return '/'
+      }
+      return moment(date).format("YYYY-MM-DD HH:mm:ss")
+    }
+
+    Vue.prototype.formartDate = function(date, fmt) {
+      if (/(y+)/.test(fmt)) {
+        fmt = fmt.replace(RegExp.$1, (date.getFullYear() + '').substr(4 - RegExp.$1.length));
+      }
+      let o = {
+        'M+': date.getMonth() + 1,
+        'd+': date.getDate(),
+        'h+': date.getHours(),
+        'm+': date.getMinutes(),
+        's+': date.getSeconds()
+      }
+      for (let k in o) {
+        let str = o[k] + '';
+        if (new RegExp(`(${k})`).test(fmt)) {
+          fmt = fmt.replace(RegExp.$1, (RegExp.$1.length === 1) ? str : padLeftZero(str));
+        }
+      }
+      return fmt;
+    }
+
+  }
+}

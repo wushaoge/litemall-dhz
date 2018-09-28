@@ -1,0 +1,412 @@
+<template>
+  <div class="app-container calendar-list-container">
+
+    <!-- 查询和其他操作 -->
+    <div class="filter-container">
+      <el-input clearable class="filter-item" style="width: 200px;" placeholder="请输入商品分类" v-model="listQuery.param.name">
+      </el-input>
+      <el-button class="filter-item" type="primary" v-waves icon="el-icon-search" @click="handleFilter">查找</el-button>
+      <el-button class="filter-item" type="primary" @click="handleCreate" icon="el-icon-edit">添加</el-button>
+      <el-button class="filter-item" type="primary" :loading="downloadLoading" v-waves icon="el-icon-download" @click="handleDownload">导出</el-button>
+    </div>
+
+    <!-- 查询结果 -->
+    <el-table size="small" :data="list" v-loading="listLoading" element-loading-text="正在查询中。。。" border fit highlight-current-row>
+
+      <el-table-column align="center" label="操作" width="250" class-name="small-padding fixed-width">
+        <template slot-scope="scope">
+          <el-button type="primary" size="mini" @click="handleUpdate(scope.row)">编辑</el-button>
+          <el-button type="danger" size="mini"  @click="handleDelete(scope.row)">删除</el-button>
+        </template>
+      </el-table-column>
+
+      <el-table-column align="center" width="150px" label="分类名称" prop="name">
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="分类描述" prop="description">
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="排序" prop="priority">
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="缩略图" prop="fileList">
+        <template slot-scope="scope">
+          <img v-if="scope.row.fileList!=null && scope.row.fileList.length>0 " :src="scope.row.fileList[0].url" alt="" style="width: 80px;height: 80px">
+        </template>
+      </el-table-column>
+
+      <el-table-column align="center" min-width="200px" label="创建时间" prop="value">
+      </el-table-column>
+
+    </el-table>
+
+    <!-- 分页 -->
+    <div class="pagination-container">
+      <el-pagination background @size-change="handleSizeChange" @current-change="handleCurrentChange" :current-page="listQuery.currentPage"
+        :page-sizes="[10,20,30,50]" :page-size="listQuery.pageSize" layout="total, sizes, prev, pager, next, jumper" :total="total">
+      </el-pagination>
+    </div>
+
+    <!-- 添加或修改对话框 -->
+    <el-dialog :title="textMap[dialogStatus]" :visible.sync="dialogFormVisible">
+      <el-form :rules="rules" ref="dataForm" :model="dataForm" status-icon label-position="left" label-width="100px" style='width: 400px; margin-left:50px;display:inline'>
+        <el-form-item label="分类名称" prop="name" style="width:300px">
+          <el-input v-model="dataForm.name" ></el-input>
+        </el-form-item>
+        <el-form-item label="分类描述" prop="description" style="width:300px">
+          <el-input v-model="dataForm.description"></el-input>
+        </el-form-item>
+        <el-form-item label="分类排序" prop="priority" style="width:300px">
+          <el-input v-model="dataForm.priority"></el-input>
+        </el-form-item>
+
+        <el-form-item label="图标">
+            <el-upload action="#"
+                      :limit="1" :http-request="uploadPicUrls"
+                      :show-file-list="true" :on-success="handleIconUrl"
+                      :file-list="dataForm.fileList"
+                      :before-upload="beforeAvatarUpload"
+                      list-type="picture-card" :on-preview="handlePictureCardPreview"
+                      :on-exceed="handleGoBeyond"
+                      :on-remove="handlerOnRemove"
+                      :on-change="handlerOnchange"
+                      ref="upload"
+                      >
+                <i class="el-icon-plus"></i>
+            </el-upload>
+        </el-form-item>
+
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="dialogFormVisible = false">取消</el-button>
+        <el-button v-if="dialogStatus=='create'" type="primary" @click="createData">确定</el-button>
+        <el-button v-else type="primary" @click="updateData">确定</el-button>
+      </div>
+    </el-dialog>
+
+    <el-dialog :visible.sync="dialogVisible">
+      <img width="100%" :src="dialogImageUrl" alt="">
+    </el-dialog>
+
+
+  </div>
+</template>
+
+<style>
+  .inline {
+    margin:0px;
+    display: inline;
+  }
+  /* hiddenIcon .el-upload--picture-card {display: none;} */
+  /* .el-upload--picture-card {
+      background-color: #fbfdff;
+      border: 1px dashed #c0ccda;
+      border-radius: 6px;
+      -webkit-box-sizing: border-box;
+      box-sizing: border-box;
+      width: 148px;
+      height: 148px;
+      line-height: 146px;
+      vertical-align: top;
+      display: none;
+  } */
+  /* .avatar-uploader .el-upload {
+      border: 1px dashed #d9d9d9;
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .avatar-uploader .el-upload:hover {
+      border-color: #409EFF;
+    }
+    .avatar-uploader-icon {
+      font-size: 28px;
+      color: #8c939d;
+      width: 178px;
+      height: 178px;
+      line-height: 178px;
+      text-align: center;
+    }
+    .avatar {
+      width: 178px;
+      height: 178px;
+      display: block;
+    } */
+</style>
+
+<script>
+import { listGoodsClassify, createGoodsClassify, updateGoodsClassify } from '@/api/goods-classify'
+import waves from '@/directive/waves' // 水波纹指令
+import { uploadFile } from '@/api/upload'
+
+export default {
+  name: 'GoodsAttribute',
+  directives: {
+    waves
+  },
+  data() {
+    return {
+      list: null,
+      total: null,
+      listLoading: true,
+      listQuery: {
+        currentPage: 1,
+        pageSize: 20,
+        param: {
+          name: undefined
+        }
+      },
+      dataForm: {
+        id: undefined,
+        name: undefined,
+        description: undefined,
+        priority: undefined,
+        source: undefined,
+        pid:0,
+        fileList: [],
+      },
+      dialogFormVisible: false,
+      dialogStatus: '',
+      textMap: {
+        update: '编辑',
+        create: '创建'
+      },
+      // fileList: [
+      //       {
+      //         name: 'test.jpeg',
+      //         url: 'http://wx2.sinaimg.cn/mw690/0060lm7Tly1fr78isnukbg306y0580xc.gif'
+      //       }
+      // ],
+      dialogImageUrl: '',
+      dialogVisible: false,
+      rules: {
+        name: [{ required: true, message: '分类名称不能为空', trigger: 'blur' }],
+        description: [{ required: true, message: '分类描述不能为空', trigger: 'blur' }],
+        priority: [{ required: true, message: '排序不能为空', trigger: 'blur' }]
+      },
+      downloadLoading: false
+    }
+  },
+  created() {
+    this.getList()
+  },
+  methods: {
+    getList() {
+      this.listLoading = true
+      listGoodsClassify(this.listQuery).then(response => {
+        this.list = response.data.recordList
+        this.total = response.data.totalCount
+        this.listLoading = false
+      }).catch(() => {
+        this.list = []
+        this.total = 0
+        this.listLoading = false
+      })
+    },
+    handleFilter() {
+      this.listQuery.page = 1
+      this.getList()
+    },
+    handleSizeChange(val) {
+      this.listQuery.limit = val
+      this.getList()
+    },
+    handleCurrentChange(val) {
+      this.listQuery.page = val
+      this.getList()
+    },
+    resetForm() {
+      this.dataForm = {
+        id: undefined,
+        name: undefined,
+        description: undefined,
+        priority: undefined,
+        pid:0,
+        fileList: []
+      }
+      // this.fileList = [
+      //       {
+      //         name: 'test.jpeg',
+      //         url: 'http://wx2.sinaimg.cn/mw690/0060lm7Tly1fr78isnukbg306y0580xc.gif'
+      //       }
+      // ]
+    },
+    handleGoBeyond(files,fileList){
+      this.$message.error('最多上传1张图片!')
+    },
+    //如果上传到最后一张了取消加号
+    hidePictureCardUpload() {
+      if(this.dataForm.fileList.length>=1){
+        document.getElementsByClassName('el-upload el-upload--picture-card')[0].style.display = 'none'
+      }else{
+        document.getElementsByClassName('el-upload el-upload--picture-card')[0].style.display = ''
+        // document.getElementsByClassName('el-upload el-upload--picture-card')[0].style.height = '148px'
+        // document.getElementsByClassName('el-upload el-upload--picture-card')[0].style.width = '148px'
+      }
+    },
+    handlerOnRemove(files,fileList){
+      console.log('触发handlerOnRemove');
+      console.log('item值\n' + JSON.stringify(fileList,null,2))
+      // this.dataForm.fileList = fileList
+      this.dataForm.fileList = fileList
+      this.hidePictureCardUpload()
+    },
+    handlerOnchange(files,fileList){
+      console.log('触发handlerOnchange');
+      console.log('item值\n' + JSON.stringify(fileList,null,2))
+      // this.dataForm.fileList = fileList
+      // this.dataForm.fileList = fileList
+      // this.hidePictureCardUpload()
+    },
+    uploadPicUrls(item) {
+      // console.log('item值\n' + JSON.stringify(this.$refs['dataForm'],null,2))
+
+      const formData = new FormData()
+      formData.append('file', item.file)
+      uploadFile(formData).then(res => {
+        //console.log('新的图片返回值DATA\n' + JSON.stringify(res,null,2))
+
+        var uploadUrlSuc = {
+          name:res.data.fileName,
+          url:res.data.fileName
+        }
+        this.dataForm.fileList.push(uploadUrlSuc)
+        // this.fileList.push(uploadUrlSuc)
+
+        // console.log('item值\n' + JSON.stringify(this.dataForm.fileList,null,2))
+        this.hidePictureCardUpload()
+
+        this.$notify({
+          title: '图片上传成功',
+          message: '~\(≧▽≦)/~啦啦啦',
+          type: 'success',
+          duration: 2000
+        })
+
+      }).catch(() => {
+        this.$message.error('上传失败，请重新上传')
+        this.dataForm.fileList.splice(this.dataForm.fileList.length,1)
+        console.log('item值\n' + JSON.stringify(this.dataForm.fileList,null,2))
+      })
+    },
+    beforeAvatarUpload(file) {
+      console.log(file.type);
+        // const isJPG = file.type === 'image/jpeg';
+        var isJPG = true;
+        if(file.type.indexOf('image') === -1){
+          isJPG = false;
+        }
+
+        const isLt2M = file.size / 1024 / 1024 < 2;
+
+        if (!isJPG) {
+          this.$message.error('上传图片格式不对!');
+        }
+        if (!isLt2M) {
+          this.$message.error('上传图片大小不能超过 2MB!');
+        }
+        return isJPG && isLt2M;
+    },
+    //handleIconUrl为默认实现
+    handleIconUrl(response, file, fileList) {
+      console.log('图片返回值DATA\n' + JSON.stringify(response,null,2))
+      if (response.code === '2000') {
+        this.dataForm.iconUrl = response.data.fileName
+      }else{
+        this.$message.error(response.code+'上传失败，请重新上传')
+      }
+      console.log('开始')
+      console.log('当前已上传的图片列表\n' + JSON.stringify(fileList,null,2))
+      console.log('结束')
+    },
+    handlePictureCardPreview(file) {
+       this.dialogImageUrl = file.url
+       this.dialogVisible = true
+    },
+    handleCreate() {
+      this.resetForm()
+      this.dialogStatus = 'create'
+      this.dialogFormVisible = true
+      this.$nextTick(() => {
+        this.$refs['dataForm'].clearValidate()
+        this.hidePictureCardUpload()
+      })
+    },
+    createData() {
+      if(this.dataForm.fileList==null || this.dataForm.fileList.length<=0){
+          this.$message.error('请上传图片!');
+          return
+      }
+      this.$refs['dataForm'].validate((valid) => {
+        if (valid) {
+          createGoodsClassify(this.dataForm).then(response => {
+            //this.list.unshift(response.data.data)
+            this.dialogFormVisible = false
+            this.getList()
+            this.$notify({
+              title: '成功',
+              message: '添加成功',
+              type: 'success',
+              duration: 2000
+            })
+          })
+        }
+      })
+    },
+    handleUpdate(row) {
+      this.dataForm = Object.assign({}, row)
+      this.dialogStatus = 'update'
+      this.dialogFormVisible = true
+      this.$nextTick(() => {
+        this.$refs['dataForm'].clearValidate()
+        this.hidePictureCardUpload()
+      })
+    },
+    updateData() {
+      this.$refs['dataForm'].validate((valid) => {
+        if (valid) {
+          updateGoodsClassify(this.dataForm).then(() => {
+            // for (const v of this.list) {
+            //   if (v.id === this.dataForm.id) {
+            //     const index = this.list.indexOf(v)
+            //     this.list.splice(index, 1, this.dataForm)
+            //     break
+            //   }
+            // }
+            this.dialogFormVisible = false
+            this.getList()
+            this.$notify({
+              title: '成功',
+              message: '更新成功',
+              type: 'success',
+              duration: 2000
+            })
+          })
+        }
+      })
+    },
+    handleDelete(row) {
+      deleteGoodsAttribute(row).then(response => {
+        this.$notify({
+          title: '成功',
+          message: '删除成功',
+          type: 'success',
+          duration: 2000
+        })
+        const index = this.list.indexOf(row)
+        this.list.splice(index, 1)
+      })
+    },
+    handleDownload() {
+      this.downloadLoading = true
+      import('@/vendor/Export2Excel').then(excel => {
+        const tHeader = ['商品参数ID', '商品ID', '商品参数名称', '商品参数值']
+        const filterVal = ['id', 'goodsId', 'attribute', 'value']
+        excel.export_json_to_excel2(tHeader, this.list, filterVal, '商品参数信息')
+        this.downloadLoading = false
+      })
+    }
+  }
+}
+</script>

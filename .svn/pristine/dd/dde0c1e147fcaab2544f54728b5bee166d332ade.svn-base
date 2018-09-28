@@ -1,0 +1,658 @@
+<template>
+  <div class="app-container calendar-list-container">
+
+    <!-- 查询和其他操作 -->
+    <div class="filter-container">
+      <el-input clearable class="filter-item" style="width: 200px;" placeholder="请输入商品编号" v-model="listQuery.param.name">
+      </el-input>
+      <el-input clearable class="filter-item" style="width: 200px;" placeholder="请输入商品名称" v-model="listQuery.param.name">
+      </el-input>
+      <el-button class="filter-item" type="primary" v-waves icon="el-icon-search" @click="handleFilter">查找</el-button>
+      <el-button class="filter-item" type="primary" @click="handleCreate" icon="el-icon-edit">添加</el-button>
+      <el-button class="filter-item" type="primary" :loading="downloadLoading" v-waves icon="el-icon-download" @click="handleDownload">导出</el-button>
+    </div>
+
+    <!-- 查询结果 -->
+    <el-table size="small" :data="list" v-loading="listLoading" element-loading-text="正在查询中。。。" border fit highlight-current-row>
+
+      <el-table-column align="center" label="操作" width="250" class-name="small-padding fixed-width">
+        <template slot-scope="scope">
+          <el-button type="primary" size="mini" @click="handleUpdate(scope.row)">编辑</el-button>
+          <el-button type="danger" size="mini"  @click="handleDelete(scope.row)" v-show="scope.row.status === 0 ? true : false">禁用</el-button>
+        </template>
+      </el-table-column>
+
+      <!-- <el-table-column type="expand">
+        <template slot-scope="props">
+          <el-form label-position="left" class="demo-table-expand">
+            <el-form-item label="首页主图">
+              <span>{{ props.row.listPicUrl }}</span>
+            </el-form-item>
+            <el-form-item label="宣传画廊">
+              <span>{{ props.row.gallery }}</span>
+            </el-form-item>
+            <el-form-item label="商品介绍">
+              <span>{{ props.row.goodsBrief }}</span>
+            </el-form-item>
+            <el-form-item label="商品详细介绍">
+              <span>{{ props.row.goodsDesc }}</span>
+            </el-form-item>
+            <el-form-item label="商品主图">
+              <span>{{ props.row.primaryPicUrl }}</span>
+            </el-form-item>
+            <el-form-item label="商品单位">
+              <span>{{ props.row.goodsUnit }}</span>
+            </el-form-item>
+            <el-form-item label="关键字">
+              <span>{{ props.row.keyword }}</span>
+            </el-form-item>
+            <el-form-item label="类目ID">
+              <span>{{ props.row.categoryId }}</span>
+            </el-form-item>
+            <el-form-item label="品牌商ID">
+              <span>{{ props.row.brandId }}</span>
+            </el-form-item>
+          </el-form>
+        </template>
+      </el-table-column> -->
+
+      <el-table-column align="center" width="100px" label="商品ID" prop="id" sortable>
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="商品编号" prop="goodsCode">
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="商品名称" prop="name">
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="所属分类" prop="categoryId">
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="商品描述" prop="description">
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="店铺价格" prop="price">
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="市场价格" prop="priceMart">
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="总库存" prop="numTotal">
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="总销量" prop="numSale">
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="是否上架" prop="isOnSale">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.isOnSale === 1 ? 'success' : 'error' ">{{scope.row.isOnSale === 1 ? '是' : '否'}}</el-tag>
+        </template>
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="是否精品" prop="isBestGoods">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.isBestGoods === 1 ? 'success' : 'error' ">{{scope.row.isBestGoods === 1 ? '是' : '否'}}</el-tag>
+        </template>
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="是否热销" prop="isHot">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.isHot === 1 ? 'success' : 'error' ">{{scope.row.isHot === 1 ? '是' : '否'}}</el-tag>
+        </template>
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="是否新品" prop="isNew">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.isNew === 1 ? 'success' : 'error' ">{{scope.row.isNew === 1 ? '是' : '否'}}</el-tag>
+        </template>
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="是否特惠" prop="isPreference">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.isPreference === 1 ? 'success' : 'error' ">{{scope.row.isPreference === 1 ? '是' : '否'}}</el-tag>
+        </template>
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="是否推荐" prop="isShare">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.isShare === 1 ? 'success' : 'error' ">{{scope.row.isShare === 1 ? '是' : '否'}}</el-tag>
+        </template>
+      </el-table-column>
+
+      <!-- <el-table-column align="center" min-width="100px" label="是否热销" prop="isHot">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.isHot ? 'success' : 'error' ">{{scope.row.isHot ? '热品' : '非热品'}}</el-tag>
+        </template>
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="是否新品" prop="isHot">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.isHot ? 'success' : 'error' ">{{scope.row.isHot ? '热品' : '非热品'}}</el-tag>
+        </template>
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="是否特惠" prop="isHot">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.isHot ? 'success' : 'error' ">{{scope.row.isHot ? '热品' : '非热品'}}</el-tag>
+        </template>
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="是否推荐" prop="isHot">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.isHot ? 'success' : 'error' ">{{scope.row.isHot ? '热品' : '非热品'}}</el-tag>
+        </template>
+      </el-table-column> -->
+
+      <el-table-column align="center" min-width="100px" label="缩略图" prop="goodsBannerFileList">
+        <template slot-scope="scope">
+          <!-- {{scope.row.goodsSources[0].source}} -->
+          <img v-if="scope.row.goodsBannerFileList!=null && scope.row.goodsBannerFileList.length>0 " :src="scope.row.goodsBannerFileList[0].url" alt="" style="width: 80px;height: 80px">
+        </template>
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="是否禁用" prop="status">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.status === 0 ? 'success' : 'error' ">{{scope.row.status === 0 ? '正常' : '禁用'}}</el-tag>
+        </template>
+      </el-table-column>
+
+
+      <el-table-column align="center" min-width="100px" label="排序" prop="priority">
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="创建时间" prop="createTime">
+      </el-table-column>
+
+      <el-table-column align="center" min-width="100px" label="修改时间" prop="updateTime">
+      </el-table-column>
+
+
+
+    </el-table>
+
+    <!-- 分页 -->
+    <div class="pagination-container">
+      <el-pagination background @size-change="handleSizeChange" @current-change="handleCurrentChange" :current-page="listQuery.currentPage"
+        :page-sizes="[10,20,30,50]" :page-size="listQuery.pageSize" layout="total, sizes, prev, pager, next, jumper" :total="total">
+      </el-pagination>
+    </div>
+
+    <el-tooltip placement="top" content="返回顶部">
+      <back-to-top :visibilityHeight="100" ></back-to-top>
+    </el-tooltip>
+
+    <!-- 添加或修改对话框 -->
+    <el-dialog :title="textMap[dialogStatus]" :visible.sync="dialogFormVisible">
+      <el-form :rules="rules" ref="dataForm" :model="dataForm" status-icon label-position="left" label-width="100px" style='width: 400px; margin-left:50px;'>
+        <!-- <el-form-item label="商品编号" prop="goodsSn">
+          <el-input v-model="dataForm.goodsSn"></el-input>
+        </el-form-item> -->
+        <el-form-item label="商品名称" prop="name">
+          <el-input v-model="dataForm.name"></el-input>
+        </el-form-item>
+
+        <el-form-item label="所属分类" prop="categoryId">
+          <el-select clearable class="filter-item" style="width: 200px;" v-model="dataForm.categoryId" placeholder="请选择所属分类">
+            <el-option v-for="item in goodsClassify" :key="item.id" :label="item.name" :value="item.id">
+            </el-option>
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="商品描述" prop="description">
+          <el-input v-model="dataForm.description"></el-input>
+        </el-form-item>
+
+        <!-- <el-form-item style="width: 700px;" label="商品详细介绍">
+          <tinymce v-model="dataForm.goodsDesc"></tinymce>
+        </el-form-item> -->
+
+        <el-form-item label="店铺价格" prop="price">
+          <el-input v-model="dataForm.price"></el-input>
+        </el-form-item>
+
+        <el-form-item label="市场价格" prop="priceMart">
+          <el-input v-model="dataForm.priceMart"></el-input>
+        </el-form-item>
+
+        <el-form-item label="商品关键字" prop="keyWords">
+          <el-input v-model="dataForm.keyWords"></el-input>
+        </el-form-item>
+
+        <el-form-item label="总库存" prop="numTotal">
+          <el-input v-model.number="dataForm.numTotal"></el-input>
+        </el-form-item>
+
+        <el-form-item label="预警库存" prop="numWarning">
+          <el-input v-model.number="dataForm.numWarning"></el-input>
+        </el-form-item>
+
+        <el-form-item label="商品属性" prop="retailPrice">
+          <el-input v-model="dataForm.retailPrice"></el-input>
+        </el-form-item>
+
+        <el-form-item label="商品卖点">
+          <!-- <el-checkbox-group v-model="checkList">
+          </el-checkbox-group> -->
+            <el-checkbox v-model="dataForm.isBestGoods">设为精品</el-checkbox>
+            <el-checkbox v-model="dataForm.isHot">设为热销</el-checkbox>
+            <el-checkbox v-model="dataForm.isNew">设为新品</el-checkbox>
+            <el-checkbox v-model="dataForm.isPreference">设为特惠</el-checkbox>
+            <el-checkbox v-model="dataForm.isShare">设为推荐</el-checkbox>
+        </el-form-item>
+
+
+        <!-- <el-form-item label="是否新品" prop="isNew">
+          <el-select v-model="dataForm.isNew" placeholder="请选择">
+            <el-option label="新品" :value="true">
+            </el-option>
+            <el-option label="新品" :value="false">
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="是否热品" prop="isHot">
+          <el-select v-model="dataForm.isHot" placeholder="请选择">
+            <el-option label="热品" :value="true">
+            </el-option>
+            <el-option label="非热品" :value="false">
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="是否在售" prop="isOnSale">
+          <el-select v-model="dataForm.isOnSale" placeholder="请选择">
+            <el-option label="在售" :value="true">
+            </el-option>
+            <el-option label="未售" :value="false">
+            </el-option>
+          </el-select>
+        </el-form-item> -->
+
+        <!-- <el-form-item label="首页主图">
+          <el-input v-model="dataForm.listPicUrl"></el-input>
+        </el-form-item>
+
+        <el-form-item label="宣传画廊">
+          <el-input v-model="dataForm.gallery"></el-input>
+        </el-form-item>
+
+        <el-form-item label="商品介绍">
+          <el-input v-model="dataForm.goodsBrief"></el-input>
+        </el-form-item> -->
+
+        <el-form-item label="排序">
+          <el-input v-model="dataForm.priority"></el-input>
+        </el-form-item>
+
+        <el-form-item label="商品图片">
+          <el-form-item label="图标">
+              <el-upload action="#"
+                        :limit="5" :http-request="uploadPicUrls"
+                        :show-file-list="true"
+                        :file-list="dataForm.goodsBannerFileList"
+                        :before-upload="beforeAvatarUpload"
+                        list-type="picture-card" :on-preview="handlePictureCardPreview"
+                        :on-exceed="handleGoBeyond"
+                        :on-remove="handlerOnRemove"
+                        ref="upload"
+                        >
+                  <i class="el-icon-plus"></i>
+              </el-upload>
+          </el-form-item>
+        </el-form-item>
+
+        <el-form-item label="上架">
+            <el-radio v-model="dataForm.isOnSale" :label="shangjia">立即上架</el-radio>
+            <el-radio v-model="dataForm.isOnSale" :label="bushangjia">暂不上架</el-radio>
+        </el-form-item>
+
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="dialogFormVisible = false">取消</el-button>
+        <el-button v-if="dialogStatus=='create'" type="primary" @click="createData">确定</el-button>
+        <el-button v-else type="primary" @click="updateData">确定</el-button>
+      </div>
+    </el-dialog>
+
+    <el-dialog :visible.sync="dialogVisible">
+      <img width="100%" :src="dialogImageUrl" alt="">
+    </el-dialog>
+
+  </div>
+</template>
+
+<style>
+  .demo-table-expand {
+    font-size: 0;
+  }
+  .demo-table-expand label {
+    width: 200px;
+    color: #99a9bf;
+  }
+  .demo-table-expand .el-form-item {
+    margin-right: 0;
+    margin-bottom: 0;
+  }
+  .el-dialog {
+    width: 800px;
+  }
+
+</style>
+
+<script>
+import { listGoods, createGoods, updateGoods, deleteGoods } from '@/api/goods'
+import { listGoodsClassify } from '@/api/goods-classify'
+import { uploadFile } from '@/api/upload'
+import waves from '@/directive/waves' // 水波纹指令
+import BackToTop from '@/components/BackToTop'
+import Tinymce from '@/components/Tinymce'
+
+export default {
+  name: 'Goods',
+  components: { BackToTop, Tinymce },
+  directives: { waves },
+  data() {
+    return {
+      list: undefined,
+      goodsClassify: [],
+      total: undefined,
+      listLoading: true,
+      listQuery: {
+        currentPage: 1,
+        pageSize: 20,
+        param: {
+          name: undefined
+        }
+      },
+      dataForm: {
+        id: undefined,
+        categoryId: undefined,
+        goodsCode: undefined,
+        name: undefined,
+        unit: undefined,
+        description: undefined,
+        price: undefined,
+
+        priceMart: undefined,
+        keyWords: undefined,
+        numTotal: undefined,
+        numCurrent: undefined,
+        numWarning: undefined,
+        numSale: undefined,
+        isOnSale: 1,
+
+        isBestGoods: undefined,
+        isHot: undefined,
+        isNew: undefined,
+        isPreference: undefined,
+        isShare: undefined,
+        priority: undefined,
+        goodsBannerFileList: [],
+        goodsDetailFileList: [],
+        goodsAttributeList: [],
+      },
+      dialogFormVisible: false,
+      dialogStatus: '',
+      textMap: {
+        update: '编辑',
+        create: '创建'
+      },
+      shangjia:1,
+      bushangjia:0,
+      dialogImageUrl: '',
+      dialogVisible: false,
+      rules: {
+        name: [{ required: true, message: '商品名称不能为空', trigger: 'blur' }],
+        price: [{ required: true, message: '店铺价格不能为空', trigger: 'blur' }],
+        priceMart: [{ required: true, message: '市场价格不能为空', trigger: 'blur' }],
+        keyWords: [{ required: true, message: '关键字不能为空', trigger: 'blur' }],
+        numTotal: [{ required: true, message: '总库存不能为空', trigger: 'blur' }],
+        numWarning: [{ required: true, message: '预警库存不能为空', trigger: 'blur' }],
+        priority: [{ required: true, message: '排序不能为空', trigger: 'blur' }]
+      },
+      downloadLoading: false
+    }
+  },
+  created() {
+    this.getList()
+    this.getClassList()
+  },
+  methods: {
+    getList() {
+      this.listLoading = true
+      listGoods(this.listQuery).then(response => {
+        this.list = response.data.recordList
+        this.total = response.data.totalCount
+        this.listLoading = false
+      }).catch(() => {
+        this.list = []
+        this.total = 0
+        this.listLoading = false
+      })
+    },
+    getClassList() { //获取分类
+      var query = {
+        currentPage: 1,
+        pageSize: 50,
+      }
+      listGoodsClassify(query).then(response => {
+        this.goodsClassify = response.data.recordList
+      }).catch(() => {
+        this.goodsClassify = []
+      })
+    },
+    handleFilter() {
+      this.listQuery.page = 1
+      this.getList()
+    },
+    handleSizeChange(val) {
+      this.listQuery.limit = val
+      this.getList()
+    },
+    handleCurrentChange(val) {
+      this.listQuery.page = val
+      this.getList()
+    },
+    resetForm() {
+      this.dataForm = {
+        id: undefined,
+        categoryId: undefined,
+        goodsCode: undefined,
+        name: undefined,
+        unit: undefined,
+        description: undefined,
+        price: undefined,
+
+        priceMart: undefined,
+        keyWords: undefined,
+        numTotal: undefined,
+        numCurrent: undefined,
+        numWarning: undefined,
+        numSale: undefined,
+        isOnSale: 1,
+
+        isBestGoods: true,
+        isHot: undefined,
+        isNew: undefined,
+        isPreference: undefined,
+        isShare: undefined,
+        priority: undefined,
+        goodsBannerFileList: [],
+        goodsDetailFileList: [],
+        goodsAttributeList: [],
+      }
+    },
+    filterLevel(value, row) {
+      return row.level === value
+    },
+    handleGoBeyond(files,fileList){
+      this.$message.error('最多上传5张图片!')
+    },
+    //如果上传到最后一张了取消加号
+    hidePictureCardUpload() {
+      if(this.dataForm.goodsBannerFileList.length>=5){
+        document.getElementsByClassName('el-upload el-upload--picture-card')[0].style.display = 'none'
+      }else{
+        document.getElementsByClassName('el-upload el-upload--picture-card')[0].style.display = ''
+      }
+    },
+    handlerOnRemove(files,fileList){
+      console.log('触发handlerOnRemove');
+      console.log('item值\n' + JSON.stringify(fileList,null,2))
+      // this.dataForm.fileList = fileList
+      this.dataForm.goodsBannerFileList = fileList
+      this.hidePictureCardUpload()
+    },
+    uploadPicUrls(item) {
+      // console.log('item值\n' + JSON.stringify(this.$refs['dataForm'],null,2))
+
+      const formData = new FormData()
+      formData.append('file', item.file)
+      uploadFile(formData).then(res => {
+        //console.log('新的图片返回值DATA\n' + JSON.stringify(res,null,2))
+
+        var uploadUrlSuc = {
+          name:res.data.fileName,
+          url:res.data.fileName
+        }
+        this.dataForm.goodsBannerFileList.push(uploadUrlSuc)
+        // this.fileList.push(uploadUrlSuc)
+
+        // console.log('item值\n' + JSON.stringify(this.dataForm.fileList,null,2))
+        this.hidePictureCardUpload()
+
+        this.$notify({
+          title: '图片上传成功',
+          message: '~\(≧▽≦)/~啦啦啦',
+          type: 'success',
+          duration: 2000
+        })
+
+      }).catch(() => {
+        this.$message.error('上传失败，请重新上传')
+        this.dataForm.goodsBannerFileList.splice(this.dataForm.goodsBannerFileList.length,1)
+        console.log('item值\n' + JSON.stringify(this.dataForm.goodsBannerFileList,null,2))
+      })
+    },
+    beforeAvatarUpload(file) {
+      console.log(file.type);
+        // const isJPG = file.type === 'image/jpeg';
+        var isJPG = true;
+        if(file.type.indexOf('image') === -1){
+          isJPG = false;
+        }
+
+        const isLt2M = file.size / 1024 / 1024 < 2;
+
+        if (!isJPG) {
+          this.$message.error('上传图片格式不对!');
+        }
+        if (!isLt2M) {
+          this.$message.error('上传图片大小不能超过 2MB!');
+        }
+        return isJPG && isLt2M;
+    },
+    handlePictureCardPreview(file) {
+       this.dialogImageUrl = file.url
+       this.dialogVisible = true
+    },
+    handleCreate() {
+      this.resetForm()
+      this.dialogStatus = 'create'
+      this.dialogFormVisible = true
+      this.$nextTick(() => {
+        this.$refs['dataForm'].clearValidate()
+      })
+    },
+    booleanConvertInt(){ //true false 转为 1 0
+      this.dataForm.isBestGoods =  this.dataForm.isBestGoods? 1 : 0;
+      this.dataForm.isHot =  this.dataForm.isHot? 1 : 0;
+      this.dataForm.isNew =  this.dataForm.isNew? 1 : 0;
+      this.dataForm.isPreference =  this.dataForm.isPreference? 1 : 0;
+      this.dataForm.isShare =  this.dataForm.isShare? 1 : 0;
+    },
+    intConvertBoolean(){
+      this.dataForm.isBestGoods =  this.dataForm.isBestGoods === 1? true : false;
+      this.dataForm.isHot =  this.dataForm.isHot === 1? true : false;
+      this.dataForm.isNew =  this.dataForm.isNew === 1? true : false;
+      this.dataForm.isPreference =  this.dataForm.isPreference === 1? true : false;
+      this.dataForm.isShare =  this.dataForm.isShare === 1? true : false;
+    },
+    createData() {
+      console.log('保存的值\n' + JSON.stringify(this.dataForm,null,2))
+      this.$refs['dataForm'].validate((valid) => {
+        if (valid) {
+          this.booleanConvertInt()
+          this.dataForm.goodsCode = this.getCurrentTime().toString();
+          console.log('保存的值\n' + JSON.stringify(this.dataForm,null,2))
+          createGoods(this.dataForm).then(response => {
+            // this.list.unshift(response.data.data)
+            this.dialogFormVisible = false
+            this.getList()
+            this.$notify({
+              title: '成功',
+              message: '添加成功',
+              type: 'success',
+              duration: 2000
+            })
+          })
+        }
+      })
+    },
+    handleUpdate(row) {
+      this.dataForm = Object.assign({}, row)
+      this.intConvertBoolean()
+
+      this.dialogStatus = 'update'
+      this.dialogFormVisible = true
+      this.$nextTick(() => {
+        this.$refs['dataForm'].clearValidate()
+        this.hidePictureCardUpload()
+      })
+    },
+    updateData() {
+      this.$refs['dataForm'].validate((valid) => {
+        if (valid) {
+          this.booleanConvertInt()
+          updateGoods(this.dataForm).then(() => {
+            // for (const v of this.list) {
+            //   if (v.id === this.dataForm.id) {
+            //     const index = this.list.indexOf(v)
+            //     this.list.splice(index, 1, this.dataForm)
+            //     break
+            //   }
+            // }
+            this.getList()
+            this.dialogFormVisible = false
+            this.$notify({
+              title: '成功',
+              message: '更新成功',
+              type: 'success',
+              duration: 2000
+            })
+          })
+        }
+      })
+    },
+    handleDelete(row) {
+      deleteGoods(row).then(response => {
+        this.$notify({
+          title: '成功',
+          message: '删除成功',
+          type: 'success',
+          duration: 2000
+        })
+        const index = this.list.indexOf(row)
+        this.list.splice(index, 1)
+      })
+    },
+    handleDownload() {
+      this.downloadLoading = true
+      import('@/vendor/Export2Excel').then(excel => {
+        const tHeader = ['商品ID', '商品编号', '名称', '专柜价格', '当前价格', '是否新品', '是否热品', '是否在售', '首页主图', '宣传画廊', '商品介绍', '详细介绍', '商品主图', '商品单位', '关键字', '类目ID', '品牌商ID']
+        const filterVal = ['id', 'goodsSn', 'name', 'counterPrice', 'retailPrice', 'isNew', 'isHot', 'isOnSale', 'listPicUrl', 'gallery', 'goodsBrief', 'goodsDesc', 'primaryPicUrl', 'goodsUnit', 'keywords', 'categoryId', 'brandId']
+        excel.export_json_to_excel2(tHeader, this.list, filterVal, '商品信息')
+        this.downloadLoading = false
+      })
+    }
+  }
+}
+</script>

@@ -1,0 +1,20 @@
+import moment from 'moment/moment'
+
+export default {
+  install(Vue, options) {
+    Vue.prototype.getTest = function() {
+      console.log('我是插件中的方法')
+    }
+
+    Vue.prototype.getCurrentTime = function() {
+      return new Date().getTime()
+    }
+
+    Vue.prototype.getDateTime = function(date) {
+      if (date == null || date == '') {
+        return '/'
+      }
+      return moment(date).format("YYYY-MM-DD HH:mm:ss")
+    }
+  }
+}

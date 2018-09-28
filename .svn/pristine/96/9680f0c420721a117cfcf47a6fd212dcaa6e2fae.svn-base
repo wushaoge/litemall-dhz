@@ -1,0 +1,1061 @@
+<template>
+
+<div class="app-container calendar-list-container">
+
+  <!-- 查询和其他操作 -->
+  <div class="filter-container">
+    <el-input clearable class="filter-item" style="width: 200px;" placeholder="请输入商品分类" v-model="listQuery.param.name">
+    </el-input>
+    <el-select clearable class="filter-item" v-model="listQuery.param.status" placeholder="请选择状态">
+      <el-option label="全部" value="">
+      </el-option>
+      <el-option label="正常" value="0">
+      </el-option>
+      <el-option label="禁用" value="1">
+      </el-option>
+    </el-select>
+    <el-button class="filter-item" type="primary" v-waves icon="el-icon-search" @click="handleFilter">查找</el-button>
+    <el-button class="filter-item" type="primary" @click="handleCreate" icon="el-icon-edit">添加</el-button>
+    <el-button class="filter-item" type="primary" :loading="downloadLoading" v-waves icon="el-icon-download" @click="handleDownload">导出</el-button>
+  </div>
+
+  <!-- 查询结果 -->
+  <el-table size="small" :data="list" v-loading="listLoading" element-loading-text="正在查询中。。。" border fit highlight-current-row>
+
+    <el-table-column align="center" label="操作" width="150" class-name="small-padding fixed-width">
+      <template slot-scope="scope">
+          <el-button type="primary" size="mini" @click="handleUpdate(scope.row)">编辑</el-button>
+          <el-button type="danger" size="mini"  @click="handleDelete(scope.row)" v-show="scope.row.status === 0 ? true : false">禁用</el-button>
+        </template>
+    </el-table-column>
+
+    <el-table-column align="center" width="150px" label="id" prop="coupon.id">
+    </el-table-column>
+
+    <el-table-column align="center" width="150px" label="优惠券标题" prop="coupon.title">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="优惠券副标题" prop="coupon.subtitle">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="优惠券类型" prop="coupon.type">
+                  <template slot-scope="scope">
+                    <el-tag :type="scope.row.coupon.type === 0 ? 'success' : 'warning' ">{{scope.row.coupon.type === 0 ? '代金券' : '折扣券'}}</el-tag>
+                  </template>
+    </el-table-column>
+
+    <el-table-column align="center" min-width="150px" label="减免额度">
+          <template slot-scope="scope">
+                <el-tag v-if="scope.row.coupon.type === 0">{{showQuotaText(scope.row)}}</el-tag>
+                <el-tag v-else="scope.row.coupon.type === 1">{{scope.row.coupon.discount}}折</el-tag>
+          </template>
+    </el-table-column>
+
+    <el-table-column align="center" min-width="150px" label="开始时间" prop="coupon.startTime" :formatter="convertTime">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="150px" label="结束时间" prop="coupon.endTime" :formatter="convertTime">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="失效天数" prop="coupon.validDay">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="领取方式" prop="coupon.receiveType">
+                <template slot-scope="scope">
+                  <el-tag :type="scope.row.coupon.receiveType === 0 ? 'success' : 'warning' ">{{scope.row.coupon.receiveType === 0 ? '手动领取' : '自动领取'}}</el-tag>
+                </template>
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="限制商品" prop="coupon.isLimit">
+                <template slot-scope="scope">
+                  <el-tag> {{showLimitText(scope.row)}}</el-tag>
+                </template>
+    </el-table-column>
+
+    <el-table-column align="center" width="100px" label="是否首页弹出" prop="coupon.isHomePopUpDisplay">
+        <template slot-scope="scope">
+                <el-tag :type="scope.row.coupon.isHomePopUpDisplay === 1 ? 'success' : 'error' ">{{scope.row.coupon.isHomePopUpDisplay === 1 ? '是' : '否'}}</el-tag>
+        </template>
+    </el-table-column>
+
+    <el-table-column align="center" width="100px" label="是否首页显示" prop="coupon.isHomeDisplay">
+        <template slot-scope="scope">
+                <el-tag :type="scope.row.coupon.isHomeDisplay === 1 ? 'success' : 'error' ">{{scope.row.coupon.isHomeDisplay === 1 ? '是' : '否'}}</el-tag>
+        </template>
+    </el-table-column>
+
+    <el-table-column align="center" width="100px" label="是否详情展示" prop="coupon.isDetailDisplay">
+        <template slot-scope="scope">
+                <el-tag :type="scope.row.coupon.isDetailDisplay === 1 ? 'success' : 'error' ">{{scope.row.coupon.isDetailDisplay === 1 ? '是' : '否'}}</el-tag>
+        </template>
+    </el-table-column>
+
+    <el-table-column align="center" width="100px" label="是否分类展示" prop="coupon.isCategoryDisplay">
+        <template slot-scope="scope">
+                <el-tag :type="scope.row.coupon.isCategoryDisplay === 1 ? 'success' : 'error' ">{{scope.row.coupon.isCategoryDisplay === 1 ? '是' : '否'}}</el-tag>
+        </template>
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="发放数量" prop="coupon.numTotal">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="已领取数量" prop="coupon.numSale">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="剩余数量" prop="coupon.numSurplus">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="每人限领" prop="coupon.numLimit">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="150px" label="使用说明" prop="coupon.describe">
+    </el-table-column>
+
+
+    <el-table-column align="center" min-width="100px" label="logo图片" prop="coupon.logo">
+        <template slot-scope="scope">
+              <!-- {{scope.row.goodsSources[0].source}} -->
+              <img :src="scope.row.coupon.logo" alt="" style="width: 80px;height: 80px">
+          </template>
+    </el-table-column>
+
+
+    <el-table-column align="center" min-width="100px" label="分享图片" prop="coupon.shareImage">
+        <template slot-scope="scope">
+              <!-- {{scope.row.goodsSources[0].source}} -->
+              <img :src="scope.row.coupon.shareImage" alt="" style="width: 80px;height: 80px">
+          </template>
+    </el-table-column>
+
+    <el-table-column align="center" min-width="130px" label="分享显示标题" prop="coupon.shareTitle">
+    </el-table-column>
+
+
+    <el-table-column align="center" width="100px" label="是否上架" prop="coupon.status">
+        <template slot-scope="scope">
+                <el-tag :type="scope.row.coupon.status === 0 ? 'success' : 'error' ">{{scope.row.coupon.status === 0 ? '正常' : '禁用'}}</el-tag>
+        </template>
+    </el-table-column>
+
+    <el-table-column align="center" min-width="150px" label="上架时间" prop="coupon.onsaleTime" :formatter="dateFormat">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="150px" label="下架时间" prop="coupon.lowersaleTime" :formatter="dateFormat">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="150px" label="创建时间" prop="coupon.createTime" :formatter="dateFormat">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="150px" label="修改时间" prop="coupon.updateTime" :formatter="dateFormat">
+    </el-table-column>
+
+  </el-table>
+
+  <!-- 分页 -->
+  <div class="pagination-container">
+    <el-pagination background @size-change="handleSizeChange" @current-change="handleCurrentChange" :current-page="listQuery.currentPage" :page-sizes="[10,20,30,50]" :page-size="listQuery.pageSize" layout="total, sizes, prev, pager, next, jumper" :total="total">
+    </el-pagination>
+  </div>
+
+  <!-- 添加或修改对话框 -->
+  <el-dialog :title="textMap[dialogStatus]" :visible.sync="dialogFormVisible" :close-on-click-modal="false" width="60%">
+    <el-form :rules="rules" ref="dataForm" :model="dataForm" status-icon label-position="left" label-width="100px" style='width: 300px; margin-left:50px;display:inline'>
+
+      <el-form-item label="优惠券Logo">
+        <el-upload action="#" :limit="1" :http-request="uploadPicUrls" :show-file-list="true" :file-list="dataForm.fileList" :before-upload="beforeAvatarUpload" list-type="picture-card" :on-preview="handlePictureCardPreview" :on-exceed="handleGoBeyond"
+          :on-remove="handlerOnRemove" ref="upload">
+          <i class="el-icon-plus"></i>
+        </el-upload>
+      </el-form-item>
+
+      <el-form-item label="标题"  style="width:300px">
+        <el-input v-model="dataForm.coupon.title" :maxlength="inputMaxlength15"></el-input>
+      </el-form-item>
+
+      <el-form-item label="副标题"  style="width:300px">
+        <el-input v-model="dataForm.coupon.subtitle" :maxlength="inputMaxlength50"></el-input>
+      </el-form-item>
+
+      <el-form-item label="优惠券种类" style="width:300px">
+          <template slot-scope="scope">
+              <el-radio-group v-model="dataForm.coupon.type" style="display:inline-flex">
+                <el-radio v-for="item in typeList" :label="item.id" :key="item.id">{{item.name}}</el-radio>
+              </el-radio-group>
+          </template>
+      </el-form-item>
+
+      <el-form-item label="折扣" style="width:300px" v-show="dataForm.coupon.type == 1 ? true : false">
+        <el-input v-model="dataForm.coupon.discount" placeholder="请输入0.1-9.9的折扣" :maxlength="inputMaxlength3">
+            <template slot="append">折</template>
+        </el-input>
+      </el-form-item>
+
+      <el-form-item label="减免金额" style="width:300px" v-show="dataForm.coupon.type == 0 ? true : false">
+        <el-radio-group v-model="preferentialType" style="display:inline-flex">
+          <el-radio :label="0">无限制</el-radio>
+          <el-radio :label="1">满减优惠</el-radio>
+        </el-radio-group>
+        <el-input v-model="dataForm.coupon.quota" placeholder="请输入满足金额" :maxlength="inputMaxlength6" v-show="preferentialType == 0 ? false : true">
+          <template slot="prepend">满</template>
+        </el-input>
+        <el-input v-model="dataForm.coupon.money" placeholder="请输入减免金额" :maxlength="inputMaxlength6" v-show="dataForm.coupon.type == 0 ? true : false">
+          <template slot="prepend">减</template>
+        </el-input>
+      </el-form-item>
+
+      <el-form-item label="有效期" style="width:300px">
+        <el-radio-group v-model="validType" style="display:inline-flex">
+          <el-radio :label="0">固定日期</el-radio>
+          <el-radio :label="1">领取后失效</el-radio>
+        </el-radio-group>
+
+        <el-date-picker
+              v-show="validType == 0 ? true : false"
+              v-model="dataForm.coupon.timeData"
+              type="datetimerange"
+              align="right"
+              format = "yyyy-MM-dd HH:mm:ss"
+              value-format = "yyyy-MM-dd HH:mm:ss"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              :default-time="['09:00:00', '08:00:00']"
+              >
+        </el-date-picker>
+
+        <el-input v-model="dataForm.coupon.validDay" placeholder="" style="width:250px" :maxlength="inputMaxlength6" v-show="validType == 1 ? true : false">
+          <template slot="prepend">领取后</template>
+          <template slot="append">天失效</template>
+        </el-input>
+
+      </el-form-item>
+
+      <el-form-item label="使用限制" style="width:300px">
+        <el-radio-group v-model="dataForm.coupon.isLimit" style="display:inline-flex">
+          <el-radio :label="0">无限制</el-radio>
+          <el-radio :label="1">指定商品(可以选择多个)</el-radio>
+          <el-radio :label="2">指定商品分类(可以选择多个)</el-radio>
+        </el-radio-group>
+
+
+        <el-input v-model="dataForm.coupon.goodsIds" placeholder="请输入多个商品id以逗号分隔" v-show="dataForm.coupon.isLimit == 1 ? true : false"></el-input>
+
+        <el-checkbox-group v-model="dataForm.coupon.categoryList" v-show="dataForm.coupon.isLimit == 2 ? true : false"  style="display:flex;flex-wrap:wrap">
+          <el-checkbox v-for="item in goodsClassify" :label="item.id" :key="item.id">{{item.name}}</el-checkbox>
+        </el-checkbox-group>
+
+      </el-form-item>
+
+      <el-form-item label="使用说明" style="width:500px">
+        <el-input v-model="dataForm.coupon.describe" width="500px"  type="textarea" :rows="2"></el-input>
+      </el-form-item>
+
+      <el-form-item label="领取方式" style="width:300px">
+        <el-radio-group v-model="dataForm.coupon.receiveType" style="display:inline-flex">
+          <el-radio :label="1">自动领取</el-radio>
+          <el-radio :label="0">手动领取</el-radio>
+        </el-radio-group>
+      </el-form-item>
+
+
+      <el-form-item label="首页弹出" style="width:300px">
+        <el-radio-group v-model="dataForm.coupon.isHomePopUpDisplay" style="display:inline-flex">
+          <el-radio :label="1">首页弹出</el-radio>
+          <el-radio :label="0">首页不弹出</el-radio>
+        </el-radio-group>
+      </el-form-item>
+
+      <el-form-item label="首页显示" style="width:300px">
+        <el-radio-group v-model="dataForm.coupon.isHomeDisplay" style="display:inline-flex">
+          <el-radio :label="1">首页显示</el-radio>
+          <el-radio :label="0">首页不显示</el-radio>
+        </el-radio-group>
+      </el-form-item>
+
+      <el-form-item label="商品详情页显示" style="width:300px;display:-moz-stack">
+        <el-radio-group v-model="dataForm.coupon.isDetailDisplay" style="display:inline-flex">
+          <el-radio :label="1">商品详情页显示</el-radio>
+          <el-radio :label="0">商品详情页不显示</el-radio>
+        </el-radio-group>
+      </el-form-item>
+
+      <el-form-item label="商品分类显示" style="width:300px">
+        <el-radio-group v-model="dataForm.coupon.isCategoryDisplay" style="display:inline-flex">
+          <el-radio :label="1">商品分类页显示</el-radio>
+          <el-radio :label="0">商品分类页不显示</el-radio>
+        </el-radio-group>
+      </el-form-item>
+
+      <el-form-item label="库存" style="width:300px">
+        <el-input v-model="dataForm.coupon.numTotal" placeholder="请输入发放数量" :maxlength="inputMaxlength8">
+            <template slot="append">张</template>
+        </el-input>
+      </el-form-item>
+
+      <el-form-item label="每人限令" style="width:300px">
+        <el-input v-model="dataForm.coupon.numLimit" placeholder="请输入每人限令数量" :maxlength="inputMaxlength8">
+            <template slot="append">张</template>
+        </el-input>
+      </el-form-item>
+
+      <el-form-item label="分享图片">
+        <el-upload action="#" :limit="1" :http-request="uploadPicUrls2" :show-file-list="true" :file-list="dataForm.fileList2" :before-upload="beforeAvatarUpload" list-type="picture-card" :on-preview="handlePictureCardPreview" :on-exceed="handleGoBeyond"
+          :on-remove="handlerOnRemove2" ref="upload">
+          <i class="el-icon-plus"></i>
+        </el-upload>
+      </el-form-item>
+
+      <el-form-item label="分享标题" style="width:300px">
+        <el-input v-model="dataForm.coupon.shareTitle" :maxlength="inputMaxlength30"></el-input>
+      </el-form-item>
+
+
+      <el-form-item label="上架">
+        <el-radio v-model="dataForm.coupon.isOnSale" :label="1">立即上架</el-radio>
+        <el-radio v-model="dataForm.coupon.isOnSale" :label="0">暂不上架</el-radio>
+      </el-form-item>
+
+
+    </el-form>
+    <div slot="footer" class="dialog-footer">
+      <el-button @click="dialogFormVisible = false">取消</el-button>
+      <el-button v-if="dialogStatus=='create'" type="primary" @click="createData">确定</el-button>
+      <el-button v-else type="primary" @click="updateData">确定</el-button>
+    </div>
+  </el-dialog>
+
+  <el-dialog :visible.sync="dialogVisible">
+    <img width="100%" :src="dialogImageUrl" alt="">
+  </el-dialog>
+
+
+</div>
+</template>
+
+<style>
+.inline {
+  margin: 0px;
+  display: inline;
+}
+
+/* hiddenIcon .el-upload--picture-card {display: none;} */
+
+/* .el-upload--picture-card {
+      background-color: #fbfdff;
+      border: 1px dashed #c0ccda;
+      border-radius: 6px;
+      -webkit-box-sizing: border-box;
+      box-sizing: border-box;
+      width: 148px;
+      height: 148px;
+      line-height: 146px;
+      vertical-align: top;
+      display: none;
+  } */
+
+/* .avatar-uploader .el-upload {
+      border: 1px dashed #d9d9d9;
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .avatar-uploader .el-upload:hover {
+      border-color: #409EFF;
+    }
+    .avatar-uploader-icon {
+      font-size: 28px;
+      color: #8c939d;
+      width: 178px;
+      height: 178px;
+      line-height: 178px;
+      text-align: center;
+    }
+    .avatar {
+      width: 178px;
+      height: 178px;
+      display: block;
+    } */
+</style>
+
+<script>
+import {
+  listConpon,
+  createCoupon
+} from '@/api/coupon'
+import {
+  listGoodsClassify
+} from '@/api/goods-classify'
+import {
+  listGoods
+} from '@/api/goods'
+import waves from '@/directive/waves' // 水波纹指令
+import {
+  uploadFile
+} from '@/api/upload'
+
+export default {
+  name: 'Coupon',
+  directives: {
+    waves
+  },
+  data() {
+    return {
+      list: null,
+      goodsClassify: [],
+      total: null,
+      listLoading: true,
+      inputMaxlength3:3,
+      inputMaxlength6:6,
+      inputMaxlength8:8,
+      inputMaxlength10:10,
+      inputMaxlength15:15,
+      inputMaxlength30:30,
+      inputMaxlength50:50,
+      listQuery: {
+        currentPage: 1,
+        pageSize: 10,
+        param: {
+          name: undefined,
+          status: undefined
+        }
+      },
+      selectTypeID: '0',
+      typeList:[
+        {
+          id:0,
+          name:'代金券'
+        },
+        {
+          id:1,
+          name:'折扣券'
+        }
+      ],
+      preferentialType:0,
+      preferentialPrice:undefined,
+      validType:0, //0固定日期  1失效天数
+      dataForm: {
+        coupon:{
+          id: undefined,
+          title: undefined, //标题
+          subtitle: undefined, //副标题
+          type: 0, //类型（0：代金券、1：折扣券、2：礼品券）
+          money: undefined, //减免金额
+          discount: undefined, //折扣
+
+          quota: undefined, //条件额度
+          timeData:[], //开始日期与结束日期的集合 ["2018-06-12T16:00:00.000Z","2018-07-09T16:00:00.000Z"]
+          startTime: undefined, //开始日期
+          endTime: undefined, //结束日期
+          validDay: undefined, //validDay
+
+          receiveType: 1, //领取方式（0：手动领取，1：自动领取）
+          isWechat: undefined, //是否支持微信卡包（0：否，1：是）
+          logo: undefined, //logo图片Url
+          tag: undefined, //标签
+
+          isLimit: 1, //使用限制
+          isHomePopUpDisplay: 1, //是否首页弹出
+          isHomeDisplay: 1, //是否首页显示
+          isDetailDisplay: 1, //是否详情展示
+          isCategoryDisplay: 1, //是否分类展示
+          color: undefined, //卡券颜色
+          numTotal: undefined, //发放数量（库存）
+          numSale: undefined, //领取数量（销售量）
+          numSurplus: undefined, //剩余数量
+          numLimit: 1, //每人限领
+          describe: undefined, //使用说明（描述）
+          suppor: undefined, //客服电话
+          shareTitle: undefined, //分享显示标题
+          shareImage: undefined, //分享显示图片url
+
+          isOnSale: 1, //是否上架（0：未上架， 1：已上架）
+          onsaleTime: undefined, //上架时间
+          lowersaleTime: undefined, //下架时间
+
+          goodsIds: undefined, //多个商品id 逗号分隔
+          categoryList:[] //选择的多个分类集合
+        },
+        fileList: [], //logo图片
+        fileList2: [], //分享图片
+        recordList: [
+          {
+              goodsId:undefined, //商品id
+              categoryId:undefined //商品分类id
+          }
+        ]
+      },
+      dialogFormVisible: false,
+      dialogStatus: '',
+      textMap: {
+        update: '编辑',
+        create: '创建'
+      },
+      dialogImageUrl: '',
+      dialogVisible: false,
+      rules: {
+        description: [{
+          required: true,
+          message: '分类名称不能为空',
+          trigger: 'blur'
+        }],
+        description: [{
+          required: true,
+          message: '分类描述不能为空',
+          trigger: 'blur'
+        }],
+        priority: [{
+          required: true,
+          message: '排序不能为空',
+          trigger: 'blur'
+        }]
+      },
+      downloadLoading: false
+    }
+  },
+  created() {
+    this.getList()
+    this.getClassList()
+  },
+  methods: {
+    getList() {
+      this.listLoading = true
+      listConpon(this.listQuery).then(response => {
+        this.list = response.data.recordList
+        this.total = response.data.totalCount
+        this.listLoading = false
+      }).catch(() => {
+        this.list = []
+        this.total = 0
+        this.listLoading = false
+      })
+    },
+    convertTime(row,column){
+        // if(row.coupon.startTime == null || typeof(row.coupon.startTime) == 'undefined'){
+        //   return '无'
+        // }
+        return this.getDateTime(eval('row.' + column.property))
+    },
+    showQuotaText(row){ //显示文字
+      var result = '';
+      if(row.coupon.quota !== null && typeof(row.coupon.quota) != 'undefined'){
+            result = '满'+row.coupon.quota + '元减' + row.coupon.money + '元'
+      }else{
+            result = '任意额度减' + row.coupon.money + '元'
+      }
+      return result
+    },
+    showLimitText(row){ //显示文字
+      var result = '';
+      if(row.coupon.isLimit == 0){
+          result = '无限制'
+      }else if(row.coupon.isLimit == 1){
+          result = '指定商品'
+      }else if(row.coupon.isLimit == 2){
+          result = '指定分类'
+      }
+      return result
+    },
+    getClassList() { //获取分类
+      var query = {
+        currentPage: 1,
+        pageSize: 50,
+      }
+      listGoodsClassify(query).then(response => {
+        this.goodsClassify = response.data.recordList
+      }).catch(() => {
+        this.goodsClassify = []
+      })
+    },
+    handleFilter() {
+      this.listQuery.currentPage = 1
+      this.getList()
+    },
+    handleSizeChange(val) {
+      this.listQuery.numPerPage = val
+      this.getList()
+    },
+    handleCurrentChange(val) {
+      this.listQuery.currentPage = val
+      this.getList()
+    },
+    resetForm() {
+      this.dataForm = {
+        coupon:{
+          id: undefined,
+          title: undefined, //标题
+          subtitle: undefined, //副标题
+          type: 0, //类型（0：代金券、1：折扣券、2：礼品券）
+          money: undefined, //减免金额
+          discount: undefined, //折扣
+
+          quota: undefined, //条件额度
+          timeData:[], //开始日期与结束日期的集合 ["2018-06-12T16:00:00.000Z","2018-07-09T16:00:00.000Z"]
+          startTime: undefined, //开始日期
+          endTime: undefined, //结束日期
+          validDay: undefined, //validDay
+
+          receiveType: 1, //领取方式（0：手动领取，1：自动领取）
+          isWechat: undefined, //是否支持微信卡包（0：否，1：是）
+          logo: undefined, //logo图片Url
+          tag: undefined, //标签
+
+          isLimit: 1, //使用限制
+          isHomePopUpDisplay: 1, //是否首页弹出
+          isHomeDisplay: 1, //是否首页显示
+          isDetailDisplay: 1, //是否详情展示
+          isCategoryDisplay: 1, //是否分类展示
+          color: undefined, //卡券颜色
+          numTotal: undefined, //发放数量（库存）
+          numSale: undefined, //领取数量（销售量）
+          numSurplus: undefined, //剩余数量
+          numLimit: 1, //每人限领
+          describe: undefined, //使用说明（描述）
+          suppor: undefined, //客服电话
+          shareTitle: undefined, //分享显示标题
+          shareImage: undefined, //分享显示图片url
+
+          isOnSale: 1, //是否上架（0：未上架， 1：已上架）
+          onsaleTime: undefined, //上架时间
+          lowersaleTime: undefined, //下架时间
+
+          goodsIds: undefined, //多个商品id 逗号分隔
+          categoryList:[] //选择的多个分类集合
+        },
+        fileList: [], //logo图片
+        fileList2: [], //分享图片
+        recordList: []
+      }
+    },
+    handleGoBeyond(files, fileList) {
+      this.$message.error('最多上传1张图片!')
+    },
+    //如果上传到最后一张了取消加号
+    hidePictureCardUpload() {
+      if (this.dataForm.fileList.length >= 1) {
+        document.getElementsByClassName('el-upload el-upload--picture-card')[0].style.display = 'none'
+      } else {
+        document.getElementsByClassName('el-upload el-upload--picture-card')[0].style.display = ''
+      }
+    },
+    handlerOnRemove(files, fileList) {
+      this.dataForm.fileList = fileList
+      this.hidePictureCardUpload()
+    },
+    uploadPicUrls(item) {
+      const formData = new FormData()
+      formData.append('file', item.file)
+      uploadFile(formData).then(res => {
+        var uploadUrlSuc = {
+          name: res.data.fileName,
+          url: res.data.fileName
+        }
+        this.dataForm.fileList.push(uploadUrlSuc)
+
+        this.hidePictureCardUpload()
+
+        this.$notify({
+          title: '图片上传成功',
+          message: '~\(≧▽≦)/~啦啦啦',
+          type: 'success',
+          duration: 2000
+        })
+
+      }).catch(() => {
+        this.$message.error('上传失败，请重新上传')
+        this.dataForm.fileList.splice(this.dataForm.fileList.length, 1)
+        console.log('item值\n' + JSON.stringify(this.dataForm.fileList, null, 2))
+      })
+    },
+    beforeAvatarUpload(file) {
+      console.log(file.type);
+      // const isJPG = file.type === 'image/jpeg';
+      var isJPG = true;
+      if (file.type.indexOf('image') === -1) {
+        isJPG = false;
+      }
+
+      const isLt2M = file.size / 1024 / 1024 < 2;
+
+      if (!isJPG) {
+        this.$message.error('上传图片格式不对!');
+      }
+      if (!isLt2M) {
+        this.$message.error('上传图片大小不能超过 2MB!');
+      }
+      return isJPG && isLt2M;
+    },
+    handlerOnRemove(files, fileList) {
+      this.dataForm.fileList = fileList
+      this.hidePictureCardUpload()
+    },
+    hidePictureCardUpload2() {
+      if (this.dataForm.fileList2.length >= 1) {
+        document.getElementsByClassName('el-upload el-upload--picture-card')[1].style.display = 'none'
+      } else {
+        document.getElementsByClassName('el-upload el-upload--picture-card')[1].style.display = ''
+      }
+    },
+    handlerOnRemove2(files, fileList) {
+      this.dataForm.fileList2 = fileList
+      this.hidePictureCardUpload2()
+    },
+    uploadPicUrls2(item) {
+      const formData = new FormData()
+      formData.append('file', item.file)
+      uploadFile(formData).then(res => {
+        var uploadUrlSuc = {
+          name: res.data.fileName,
+          url: res.data.fileName
+        }
+        this.dataForm.fileList2.push(uploadUrlSuc)
+
+        this.hidePictureCardUpload2()
+
+        this.$notify({
+          title: '图片上传成功',
+          message: '~\(≧▽≦)/~啦啦啦',
+          type: 'success',
+          duration: 2000
+        })
+
+      }).catch(() => {
+        this.$message.error('上传失败，请重新上传')
+        this.dataForm.fileList2.splice(this.dataForm.fileList.length, 1)
+        console.log('item值\n' + JSON.stringify(this.dataForm.fileList2, null, 2))
+      })
+    },
+    handlePictureCardPreview(file) {
+      this.dialogImageUrl = file.url
+      this.dialogVisible = true
+    },
+    handleCreate() {
+      this.resetForm()
+      this.dialogStatus = 'create'
+      this.dialogFormVisible = true
+      this.$nextTick(() => {
+        this.$refs['dataForm'].clearValidate()
+        this.hidePictureCardUpload()
+      })
+    },
+    checkLegal(){ //验证各个参数的合法性
+      var result = true
+      //验证前面的输入框
+      console.log('日期\n' + JSON.stringify(this.dataForm.coupon.timeData, null, 2))
+      if(typeof(this.dataForm.coupon.title) == "undefined"){
+          this.$message.error('标题不能为空!');
+          result = false
+          return
+      }
+      if(typeof(this.dataForm.coupon.subtitle) == "undefined"){
+          this.$message.error('副标题不能为空!');
+          result = false
+          return
+      }
+      if(this.dataForm.coupon.type == 0 && typeof(this.dataForm.coupon.money) == "undefined"){
+          this.$message.error('减免金额不能为空!');
+          result = false
+          return
+      }
+      if(this.dataForm.coupon.type == 0 && isNaN(this.dataForm.coupon.money)){
+        this.$message.error('减免金额填写错误!');
+        result = false
+        return
+      }
+      if(this.dataForm.coupon.type == 0 && this.preferentialType == 1 && typeof(this.dataForm.coupon.quota) == "undefined"){
+          this.$message.error('满足金额不能为空!');
+          result = false
+          return
+      }
+      if(this.dataForm.coupon.type == 0 && this.preferentialType == 1 && isNaN(this.dataForm.coupon.quota)){
+        this.$message.error('满足金额填写错误!');
+        result = false
+        return
+      }
+
+      if(this.dataForm.coupon.type == 1 && typeof(this.dataForm.coupon.discount) == "undefined"){
+          this.$message.error('折扣不能为空!');
+          result = false
+          return
+      }
+      if(this.dataForm.coupon.type == 1 && isNaN(this.dataForm.coupon.discount)){
+        this.$message.error('折扣填写错误!');
+        result = false
+        return
+      }
+      if(this.validType == 0 && typeof(this.dataForm.coupon.timeData) == "undefined"){
+          this.$message.error('日期不能为空!');
+          result = false
+          return
+      }
+
+      if(this.validType == 1 && typeof(this.dataForm.coupon.validDay) == "undefined"){
+          this.$message.error('失效天数不能为空!');
+          result = false
+          return
+      }
+      if(this.validType == 1 && isNaN(this.dataForm.coupon.validDay)){
+        this.$message.error('失效天数填写错误!');
+        result = false
+        return
+      }
+      if(typeof(this.dataForm.coupon.numTotal) == "undefined"){
+          this.$message.error('发放数量不能为空!');
+          result = false
+          return
+      }
+      if(isNaN(this.dataForm.coupon.numTotal)){
+        this.$message.error('发放数量填写错误!');
+        result = false
+        return
+      }
+      if(typeof(this.dataForm.coupon.numLimit) == "undefined"){
+          this.$message.error('限领数量不能为空!');
+          result = false
+          return
+      }
+      if(isNaN(this.dataForm.coupon.numLimit)){
+          this.$message.error('限领数量填写错误!');
+          result = false
+          return
+      }
+      return result
+    },
+    createData() {
+      // if (this.dataForm.fileList == null || this.dataForm.fileList.length <= 0) {
+      //   this.$message.error('请上传图片!');
+      //   return
+      // }
+      //
+
+      //赋值startTime和endTime
+      if(this.validType == 0 && typeof(this.dataForm.coupon.timeData) != "undefined"){
+        this.dataForm.coupon.startTime = new Date(this.dataForm.coupon.timeData[0]).getTime()
+        this.dataForm.coupon.endTime = new Date(this.dataForm.coupon.timeData[1]).getTime()
+        console.log('开始时间'+this.dataForm.coupon.startTime)
+        console.log('结束时间'+this.dataForm.coupon.endTime)
+      }
+      console.log('categoryList'+JSON.stringify(this.dataForm.coupon.categoryList, null, 2))
+
+
+      if(!this.checkLegal()){
+         return
+      }
+
+      //赋值logo图片
+      if(this.dataForm.fileList.length>0){
+        this.dataForm.coupon.logo = this.dataForm.fileList[0].url
+      }
+      //赋值分享图片
+      if(this.dataForm.fileList2.length>0){
+        this.dataForm.coupon.shareImage = this.dataForm.fileList2[0].url
+      }
+
+      if(this.dataForm.coupon.isLimit == 0){ //无限制
+          //暂不处理
+      }
+      if(this.dataForm.coupon.isLimit == 1){ //指定多个商品
+          if(typeof(this.dataForm.coupon.goodsIds)=='undefined'){
+            this.$message.error('请填写指定商品id!');
+            return
+          }
+
+          var arrygoodIds = this.dataForm.coupon.goodsIds.split(',')
+          for (var i = 0; i<arrygoodIds.length; i++) {
+              var item = {
+                goodsId:arrygoodIds[i]
+              }
+              this.dataForm.recordList.push(item)
+          }
+
+      }
+      if(this.dataForm.coupon.isLimit == 2){ //指定多个分类
+          if(this.dataForm.coupon.categoryList.length<=0){
+            this.$message.error('请选择分类!');
+            return
+          }
+
+          for (var i = 0; i<this.dataForm.coupon.categoryList.length; i++) {
+              var item = {
+                categoryId:this.dataForm.coupon.categoryList[i]
+              }
+              this.dataForm.recordList.push(item)
+          }
+
+      }
+
+      this.$refs['dataForm'].validate((valid) => {
+        if (valid) {
+          createCoupon(this.dataForm).then(response => {
+            //this.list.unshift(response.data.data)
+            this.dialogFormVisible = false
+            this.getList()
+            this.$notify({
+              title: '成功',
+              message: '添加成功',
+              type: 'success',
+              duration: 2000
+            })
+          })
+        }
+      })
+    },
+    handleUpdate(row) {
+      var itemData = Object.assign({}, row)
+      this.dataForm = itemData
+      this.dataForm.fileList = []
+      this.dataForm.fileList2 = []
+      this.dataForm.coupon.goodsIds = ''
+      this.dataForm.coupon.categoryList = []
+
+      if(itemData.coupon.quota != null){
+          this.preferentialType = 1 //代表满减
+      }else{
+          this.preferentialType = 0 //代表无门槛
+      }
+
+      if(itemData.coupon.validDay != null){
+          this.validType = 1 //领取后失效
+      }else{
+          this.validType = 0 //固定日期
+          this.dataForm.coupon.timeData = []
+          this.dataForm.coupon.timeData[0] = this.getDateTime(itemData.coupon.startTime)
+          this.dataForm.coupon.timeData[1] = this.getDateTime(itemData.coupon.endTime)
+      }
+
+      //设置logo图片
+      if(itemData.coupon.logo != null){
+          var imgData = {
+             name:itemData.coupon.logo,
+             url:itemData.coupon.logo
+          }
+          this.dataForm.fileList.push(imgData)
+      }
+      //设置分享图片
+      if(itemData.coupon.shareImage != null){
+          var imgData2 = {
+             name:itemData.coupon.shareImage,
+             url:itemData.coupon.shareImage
+          }
+          this.dataForm.fileList2.push(imgData2)
+      }
+
+      //设置多个商品id
+      if(itemData.coupon.isLimit == 1){
+          var goodsIds = ''
+          for (var i=0; i < itemData.recordList.length; i++) {
+              goodsIds += itemData.recordList[i].goodsId + ','
+          }
+          this.dataForm.coupon.goodsIds = goodsIds.substring(0,goodsIds.length-1)
+      }
+
+      //设置多个分类id
+      if(itemData.coupon.isLimit == 2){
+          for (var i=0; i < itemData.recordList.length; i++) {
+              this.dataForm.coupon.categoryList.push(itemData.recordList[i].categoryId)
+          }
+          console.log('categoryList'+JSON.stringify(this.dataForm.coupon.categoryList, null, 2))
+      }
+
+      this.dialogStatus = 'update'
+      this.dialogFormVisible = true
+      this.$nextTick(() => {
+        this.$refs['dataForm'].clearValidate()
+        this.hidePictureCardUpload()
+        this.hidePictureCardUpload2()
+      })
+    },
+    updateData() {
+      this.$refs['dataForm'].validate((valid) => {
+        if (valid) {
+          updateGoodsClassify(this.dataForm).then(() => {
+            // for (const v of this.list) {
+            //   if (v.id === this.dataForm.id) {
+            //     const index = this.list.indexOf(v)
+            //     this.list.splice(index, 1, this.dataForm)
+            //     break
+            //   }
+            // }
+            this.dialogFormVisible = false
+            this.getList()
+            this.$notify({
+              title: '成功',
+              message: '更新成功',
+              type: 'success',
+              duration: 2000
+            })
+          })
+        }
+      })
+    },
+    handleDelete(row) {
+
+      this.$confirm('确定禁用吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        row.status = 1
+        deleteCategory(row).then(response => {
+          this.$notify({
+            title: '成功',
+            message: '禁用成功',
+            type: 'success',
+            duration: 2000
+          })
+
+          this.getList()
+        })
+
+      }).catch(() => {
+        this.$message({
+          type: 'info',
+          message: '已取消禁用'
+        });
+      });
+    },
+    handleJh(row) {
+      this.$confirm('确定激活吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        row.status = 0
+        deleteCategory(row).then(response => {
+          this.$notify({
+            title: '成功',
+            message: '激活成功',
+            type: 'success',
+            duration: 2000
+          })
+
+          this.getList()
+        })
+
+      }).catch(() => {
+        this.$message({
+          type: 'info',
+          message: '已取消激活'
+        });
+      });
+    },
+    handleDownload() {
+      this.downloadLoading = true
+      import ('@/vendor/Export2Excel').then(excel => {
+        const tHeader = ['商品参数ID', '商品ID', '商品参数名称', '商品参数值']
+        const filterVal = ['id', 'goodsId', 'attribute', 'value']
+        excel.export_json_to_excel2(tHeader, this.list, filterVal, '商品参数信息')
+        this.downloadLoading = false
+      })
+    },
+    //时间格式化
+    dateFormat: function(row, column,cellValue, index) {
+      var date = eval('row.' + column.property);
+      //var date = row.coupon.createTime;
+      if (date == undefined) {
+        return "";
+      }
+      return this.getDateTime(date);
+    }
+  }
+}
+</script>

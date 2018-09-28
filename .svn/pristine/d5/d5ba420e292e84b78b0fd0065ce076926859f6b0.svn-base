@@ -1,0 +1,468 @@
+<template>
+<div class="app-container calendar-list-container">
+
+  <!-- 查询和其他操作 -->
+  <div class="filter-container">
+    <div style='margin:0 0 10px 0px'>筛选条件</div>
+    <el-input clearable class="filter-item" style="width: 200px;" placeholder="请输入会员ID" v-model="listQuery.id">
+    </el-input>
+    <el-input clearable class="filter-item" style="width: 200px;" placeholder="请输入会员名称" v-model="listQuery.userName">
+    </el-input>
+    <el-select clearable class="filter-item" style="width: 200px;" v-model="listQuery.vipId" placeholder="请选择会员等级">
+      <el-option v-for="item in userLevelList" :key="item.id" :label="item.name" :value="item.id">
+      </el-option>
+    </el-select>
+    <!-- <el-select clearable class="filter-item" v-model="listQuery.status"  placeholder="请选择状态">
+      <el-option label="全部" value="-1">
+      </el-option>
+      <el-option label="正常" value="0">
+      </el-option>
+      <el-option label="禁用" value="1">
+      </el-option>
+    </el-select> -->
+    <el-button class="filter-item" type="primary" v-waves icon="el-icon-search" @click="handleFilter">查找</el-button>
+    <el-button class="filter-item" type="primary" v-waves icon="el-icon-refresh" @click="resetFilter">重置搜索条件</el-button>
+    <!-- <el-button class="filter-item" type="primary" @click="handleCreate" icon="el-icon-edit">添加</el-button>
+      <el-button class="filter-item" type="primary" :loading="downloadLoading" v-waves icon="el-icon-download" @click="handleDownload">导出</el-button> -->
+  </div>
+
+  <!-- 查询结果 -->
+  <el-table size="small" :data="list" v-loading="listLoading" element-loading-text="正在查询中。。。" border fit highlight-current-row>
+
+    <el-table-column align="center" label="操作" width="80" class-name="small-padding fixed-width">
+      <template slot-scope="scope">
+          <el-button type="primary" size="mini" @click="handleUpdate(scope.row)">编辑</el-button>
+          <!-- <el-button type="danger" size="mini"  @click="handleDelete(scope.row)" v-show="scope.row.status === 0 ? true : false">禁用</el-button> -->
+        </template>
+    </el-table-column>
+
+    <el-table-column align="center" width="100px" label="会员ID" prop="id" sortable>
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="会员名称" prop="userName">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="会员等级" prop="userVip.name">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="昵称" prop="nickname">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="60px" label="性别" prop="gender">
+      <template slot-scope="scope">
+          <!-- {{scope.row.gender === 0 ? '女' : '男'}} -->
+          <el-tag>{{scope.row.gender === 0 ? '女' : '男'}}</el-tag>
+        </template>
+    </el-table-column>
+
+    <el-table-column align="center" min-width="50px" label="地址" prop="address">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="头像" prop="avatar">
+      <template slot-scope="scope">
+          <img :src="scope.row.avatar" alt="" style="width: 70px;height: 70px">
+        </template>
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="姓名" prop="name">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="身份证号" prop="idcard">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="联系电话" prop="mobile">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="电子邮箱" prop="email">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="标签" prop="tag">
+    </el-table-column>
+
+    <el-table-column align="center" min-width="100px" label="积分" prop="userScore">
+    </el-table-column>
+
+
+    <!-- <el-table-column align="center" min-width="100px" label="是否禁用" prop="status">
+      <template slot-scope="scope">
+          <el-tag :type="scope.row.status === 0 ? 'success' : 'error' ">{{scope.row.status === 0 ? '正常' : '禁用'}}</el-tag>
+        </template>
+    </el-table-column> -->
+
+    <el-table-column align="center" min-width="150px" label="注册时间" prop="createTime" :formatter="dateFormat">
+    </el-table-column>
+
+    <!-- <el-table-column align="center" min-width="100px" label="状态" prop="status"
+        :filters="[{ text: '可用', value: '可用' }, { text: '禁用', value: '禁用' }, { text: '删除', value: '删除' }]" :filter-method="filterStatus">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.status | statusFilter">{{scope.row.status}}</el-tag>
+        </template>
+      </el-table-column> -->
+
+  </el-table>
+
+  <!-- 分页 -->
+  <div class="pagination-container">
+    <el-pagination background @size-change="handleSizeChange" @current-change="handleCurrentChange" :current-page="listQuery.currentPage" :page-sizes="[10,20,30,50]" :page-size="listQuery.pageSize" layout="total, sizes, prev, pager, next, jumper" :total="total">
+    </el-pagination>
+  </div>
+
+  <!-- 添加或修改对话框 -->
+  <el-dialog :title="textMap[dialogStatus]" :visible.sync="dialogFormVisible">
+    <el-form :rules="rules" ref="dataForm" :model="dataForm" status-icon label-position="left" label-width="100px" style='width: 400px; margin-left:50px;'>
+      <el-form-item label="用户名" prop="userName">
+        <el-input v-model="dataForm.userName" disabled="disabled"></el-input>
+      </el-form-item>
+      <el-form-item label="姓名" prop="name">
+        <el-input v-model="dataForm.name"></el-input>
+      </el-form-item>
+      <el-form-item label="联系电话" prop="mobile">
+        <el-input v-model="dataForm.mobile"></el-input>
+      </el-form-item>
+      <el-form-item label="邮箱" prop="email">
+        <el-input v-model="dataForm.email"></el-input>
+      </el-form-item>
+      <el-form-item label="标签" prop="tag">
+        <el-input v-model="dataForm.tag"></el-input>
+      </el-form-item>
+      <el-form-item label="性别" prop="gender">
+        <el-select v-model="valueGender" placeholder="请选择">
+          <el-option label="男" value="1">
+          </el-option>
+          <el-option label="女" value="0">
+          </el-option>
+        </el-select>
+      </el-form-item>
+      <el-form-item label="身份证号码" prop="idcard">
+        <el-input v-model="dataForm.idcard"></el-input>
+      </el-form-item>
+      <el-form-item label="地址" prop="address">
+        <el-input v-model="dataForm.address"></el-input>
+      </el-form-item>
+      <el-form-item label="生日" prop="birthday">
+        <el-date-picker v-model="dataForm.birthday" type="date" placeholder="选择日期" value-format="yyyy-MM-dd">
+        </el-date-picker>
+      </el-form-item>
+      <el-form-item label="积分" prop="userScore">
+        <el-input v-model="dataForm.userScore"></el-input>
+      </el-form-item>
+      <el-form-item label="用户等级" prop="vipId">
+        <el-select clearable class="filter-item" style="width: 200px;" v-model="value9" placeholder="请选择用户等级">
+          <el-option v-for="item in userLevelDataFrom" :key="item.id" :label="item.name" :value="item.id">
+          </el-option>
+        </el-select>
+      </el-form-item>
+      <!-- <el-form-item label="状态" prop="status">
+        <el-select v-model="dataForm.status" placeholder="请选择">
+          <el-option label="正常" value="0">
+          </el-option>
+          <el-option label="禁用" value="1">
+          </el-option>
+        </el-select>
+      </el-form-item> -->
+    </el-form>
+    <div slot="footer" class="dialog-footer">
+      <el-button @click="dialogFormVisible = false">取消</el-button>
+      <el-button v-if="dialogStatus=='create'" type="primary" @click="createData">确定</el-button>
+      <el-button v-else type="primary" @click="updateData">确定</el-button>
+    </div>
+  </el-dialog>
+
+</div>
+</template>
+
+<script>
+import {
+  fetchList,
+  createUser,
+  updateUser
+} from '@/api/user'
+import {
+  getUserLevelList
+} from '@/api/userlevel'
+import waves from '@/directive/waves' // 水波纹指令
+
+export default {
+  name: 'User',
+  directives: {
+    waves
+  },
+  data() {
+    var validatePass = (rule, value, callback) => {
+      if (value === '') {
+        callback(new Error('请输入密码'))
+      } else {
+        if (this.dataForm.checkPassword !== '') {
+          this.$refs.dataForm.validateField('checkPassword')
+        }
+        callback()
+      }
+    }
+    var validatePass2 = (rule, value, callback) => {
+      if (value === '') {
+        callback(new Error('请再次输入密码'))
+      } else if (value !== this.dataForm.password) {
+        callback(new Error('两次输入密码不一致!'))
+      } else {
+        callback()
+      }
+    }
+    return {
+      list: null,
+      total: null,
+      listLoading: true,
+      userLevelList: [],
+      userLevelDataFrom: [],
+      value9: undefined,
+      valueGender: undefined,
+      listQuery: {
+        currentPage: 1,
+        pageSize: 20,
+        id: undefined,
+        userName: undefined,
+        vipId: undefined,
+        status: undefined,
+        sort: '+id'
+      },
+      dataForm: {
+        id: undefined,
+        userName: '',
+        name: '',
+        idcard: undefined,
+        nickname: undefined,
+        gender: '男',
+        address: '',
+        birthday: undefined,
+        mobile: '',
+        email: undefined,
+        tag: undefined,
+        userScore: undefined,
+        status: undefined
+      },
+      dialogFormVisible: false,
+      dialogStatus: '',
+      textMap: {
+        update: '编辑',
+        create: '创建'
+      },
+      rules: {
+        name: [{
+          required: true,
+          message: '姓名不能为空',
+          trigger: 'blur'
+        }],
+        mobile: [{
+          required: true,
+          message: '联系电话不能为空',
+          trigger: 'blur'
+        }]
+      },
+      downloadLoading: false
+    }
+  },
+  filters: {
+    statusFilter(status) {
+      const statusMap = {
+        '正常': '0',
+        '禁用': '1'
+      }
+      return statusMap[status]
+    }
+  },
+  created() {
+    this.getList()
+    this.getUserLevelList()
+  },
+  methods: {
+    getList() {
+      this.listLoading = true
+      fetchList(this.listQuery).then(response => {
+        this.list = response.data.recordList
+        this.total = response.data.totalCount
+        this.listLoading = false
+      }).catch(() => {
+        this.list = []
+        this.total = 0
+        this.listLoading = false
+      })
+    },
+    getUserLevelList() { //获取用户等级
+      var query = {
+        currentPage: 1,
+        pageSize: 50,
+      }
+      getUserLevelList(query).then(response => {
+        this.userLevelList = response.data.recordList
+        this.userLevelDataFrom = response.data.recordList
+        this.value9 = this.dataForm.vipId
+      }).catch(() => {
+        this.userLevelList = []
+        this.userLevelDataFrom = []
+        this.value9 = null
+      })
+    },
+    resetFilter() {
+      this.listQuery.id = ''
+      this.listQuery.userName = ''
+      this.listQuery.vipId = ''
+      this.listQuery.page = 1
+      this.listQuery.status = -1
+      this.getList()
+    },
+    handleFilter() {
+      this.listQuery.page = 1
+      this.getList()
+    },
+    handleSizeChange(val) {
+      this.listQuery.limit = val
+      this.getList()
+    },
+    handleCurrentChange(val) {
+      this.listQuery.page = val
+      this.getList()
+    },
+    resetForm() {
+      this.value9 = null,
+        this.valueGender = undefined,
+        this.userLevelDataFrom = [],
+        this.dataForm = {
+          id: undefined,
+          userName: '',
+          name: '',
+          idcard: undefined,
+          nickname: undefined,
+          gender: '男',
+          address: '',
+          birthday: undefined,
+          mobile: '',
+          email: undefined,
+            tag: undefined,
+          userScore: undefined,
+          status: undefined
+        }
+    },
+    filterStatus(value, row) {
+      return row.status === value
+    },
+    handleCreate() {
+      this.resetForm()
+      this.dialogStatus = 'create'
+      this.dialogFormVisible = true
+      this.$nextTick(() => {
+        this.$refs['dataForm'].clearValidate()
+      })
+    },
+    createData() {
+      this.$refs['dataForm'].validate((valid) => {
+        if (valid) {
+          createUser(this.dataForm).then(response => {
+            this.list.unshift(response.data.data)
+            this.dialogFormVisible = false
+            this.$notify({
+              title: '成功',
+              message: '创建成功',
+              type: 'success',
+              duration: 2000
+            })
+          })
+        }
+      })
+    },
+    handleUpdate(row) {
+      var item = Object.assign({}, row)
+      this.dialogStatus = 'update'
+      this.dialogFormVisible = true
+      this.$nextTick(() => {
+        this.$refs['dataForm'].clearValidate()
+      })
+
+      this.dataForm.id = item.id
+      this.dataForm.userName = item.userName
+      this.dataForm.name = item.name
+      this.dataForm.idcard = item.idcard
+      this.dataForm.nickname = item.nickname
+      this.dataForm.address = item.address
+      this.dataForm.birthday = item.birthday
+      this.dataForm.mobile = item.mobile
+      this.dataForm.email = item.email
+      this.dataForm.tag = item.tag
+      this.dataForm.userScore = item.userScore
+      this.dataForm.vipId = item.vipId
+      this.dataForm.userVip = item.userVip
+      this.value9 = null
+      this.valueGender = null
+      this.getUserLevelList()
+
+      if (item.gender == 0) {
+        this.valueGender = '女'
+      } else {
+        this.valueGender = '男'
+      }
+      // if (item.status == 0) {
+      //   this.dataForm.status = '正常'
+      // } else {
+      //   this.dataForm.status = '禁用'
+      // }
+    },
+    updateData() {
+      this.$refs['dataForm'].validate((valid) => {
+        if (valid) {
+          this.dataForm.vipId = this.value9
+          if (this.valueGender == '女') {
+            this.dataForm.gender = 0
+          }
+          if (this.valueGender == '男') {
+            this.dataForm.gender = 1
+          } else {
+            this.dataForm.gender = this.valueGender
+          }
+          console.log('发送的值\n' + JSON.stringify(this.dataForm, null, 2))
+          updateUser(this.dataForm).then(() => {
+            for (const v of this.list) {
+              if (v.id === this.dataForm.id) {
+                const index = this.list.indexOf(v)
+                this.list.splice(index, 1, this.dataForm)
+                this.getList()
+                break
+              }
+            }
+            this.dialogFormVisible = false
+            this.$notify({
+              title: '成功',
+              message: '更新成功',
+              type: 'success',
+              duration: 2000
+            })
+          })
+        }
+      })
+    },
+    handleDelete(row) {
+      console.log('用户id==' + row.id)
+      this.$notify({
+        title: '警告',
+        message: '用户删除操作不支持！',
+        type: 'warning',
+        duration: 3000
+      })
+    },
+    handleDownload() {
+      this.downloadLoading = true
+      import ('@/vendor/Export2Excel').then(excel => {
+        const tHeader = ['用户名', '手机号码', '性别', '生日', '状态']
+        const filterVal = ['username', 'mobile', 'gender', 'birthday', 'status']
+        excel.export_json_to_excel2(tHeader, this.list, filterVal, '用户信息')
+        this.downloadLoading = false
+      })
+    },
+    //时间格式化
+    dateFormat: function(row, column) {
+      var date = row[column.property];
+      if (date == undefined) {
+        return "";
+      }
+      return this.getDateTime(date);
+    }
+  }
+}
+</script>
