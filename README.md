@@ -34,6 +34,7 @@
 
  # 管理平台功能截图
    ![image](http://wx2.sinaimg.cn/mw690/0060lm7Tly1fvp9uynxk5j317s0kxn0l.jpg)
-   ![image](http://wx2.sinaimg.cn/mw690/0060lm7Tly1fvp9uynxk5j317s0kxn0l.jpg)
-    ![image](http://wx2.sinaimg.cn/mw690/0060lm7Tly1fvp9uynxk5j317s0kxn0l.jpg)
-    ![image](http://wx2.sinaimg.cn/mw690/0060lm7Tly1fvp9uynxk5j317s0kxn0l.jpg)
+   ![image](http://wx2.sinaimg.cn/mw690/0060lm7Tly1fvp9uylztyj315b0l9tax.jpg)
+    ![image](http://wx4.sinaimg.cn/mw690/0060lm7Tly1fvp9uzg8ffj31760ki0vu.jpg)
+    ![image](http://wx1.sinaimg.cn/mw690/0060lm7Tly1fvp9uznuwzj31870l1gp2.jpg)
+    ![image](http://wx4.sinaimg.cn/mw690/0060lm7Tly1fvp9uzujq1j318g0lpmzs.jpg)
